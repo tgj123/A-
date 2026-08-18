@@ -47,7 +47,7 @@ export function App() {
         if (!controller.signal.aborted) {
           hasLoaded = true
           setData(nextData)
-          setError('')
+          setError('') 
         }
       } catch (reason: unknown) {
         if (!controller.signal.aborted && !hasLoaded) {
@@ -99,7 +99,9 @@ export function App() {
       <header className="chart-header">
         <div className="playback-control" aria-label="行情回放进度">
           <div className="playback-meta">
-            <span className="playback-label">行情回放</span>
+            <span className="playback-label">
+              资金流入流出追踪
+            </span>
             <strong className="playback-time">{playbackTime || sessionStart}</strong>
           </div>
           <div className="playback-row">

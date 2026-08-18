@@ -22,8 +22,10 @@ interface FlowVisual {
   connector: Line2
   marker: THREE.Mesh
   points: THREE.Vector3[]
+  linePositions: Float32Array
   label: HTMLButtonElement
   labelTopPercent: number
+  currentValue: number
   isPositive: boolean
 }
 
@@ -33,7 +35,9 @@ const WORLD_LEFT = -5
 const WORLD_RIGHT = 5
 const WORLD_TOP = 8.25
 const WORLD_BOTTOM = -6.75
-const PLAYBACK_SECONDS = 12
+const PLAYBACK_SECONDS = 8
+const FRAME_UPDATE_INTERVAL_MS = 1000 / 30
+const RANKING_STEP_MINUTES = 10
 
 function createLabel(sector: SectorFlow): HTMLButtonElement {
   const label = document.createElement('button')
@@ -130,6 +134,36 @@ export function EnergyScene({
       -negativeMaxYi,
     ]
     const yTickWorldPositions = yTickValues.map((value) => toY(value * 100_000_000))
+    const zeroY = toY(0)
+
+    const gradientTop = WORLD_TOP - 0.25
+    const gradientBottom = plotBottom
+
+    // 渐变覆盖顶部标签区域，并以真实的 0 亿坐标切分正负颜色。
+    const gradientCanvas = document.createElement('canvas')
+    gradientCanvas.width = 2
+    gradientCanvas.height = 256
+    const gradientContext = gradientCanvas.getContext('2d')
+    if (gradientContext) {
+      const zeroRatio = (gradientTop - zeroY) / (gradientTop - gradientBottom)
+      const gradient = gradientContext.createLinearGradient(0, 0, 0, gradientCanvas.height)
+      gradient.addColorStop(0, 'rgb(255, 245, 244)')
+      gradient.addColorStop(zeroRatio, 'rgb(255, 255, 255)')
+      gradient.addColorStop(1, 'rgb(244, 251, 248)')
+      gradientContext.fillStyle = gradient
+      gradientContext.fillRect(0, 0, gradientCanvas.width, gradientCanvas.height)
+    }
+    const areaGradientTexture = new THREE.CanvasTexture(gradientCanvas)
+    areaGradientTexture.colorSpace = THREE.SRGBColorSpace
+    const areaGradientGeometry = new THREE.PlaneGeometry(gridRight - gridLeft, gradientTop - gradientBottom)
+    const areaGradientMaterial = new THREE.MeshBasicMaterial({
+      map: areaGradientTexture,
+      transparent: true,
+      depthWrite: false,
+    })
+    const areaGradient = new THREE.Mesh(areaGradientGeometry, areaGradientMaterial)
+    areaGradient.position.set((gridLeft + gridRight) / 2, (gradientTop + gradientBottom) / 2, -0.5)
+    scene.add(areaGradient)
 
     const gridMaterial = new THREE.LineBasicMaterial({ color: '#d9dde2', transparent: true, opacity: 0.7 })
     const gridLines: THREE.Line[] = []
@@ -143,7 +177,7 @@ export function EnergyScene({
       gridLines.push(line)
     })
     const zeroLine = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(gridLeft, 0, 0), new THREE.Vector3(gridRight, 0, 0)]),
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(gridLeft, zeroY, 0), new THREE.Vector3(gridRight, zeroY, 0)]),
       new THREE.LineDashedMaterial({ color: '#87919c', dashSize: 0.12, gapSize: 0.09 }),
     )
     zeroLine.computeLineDistances()
@@ -174,7 +208,12 @@ export function EnergyScene({
         0,
       ))
       const lineGeometry = new LineGeometry()
-      lineGeometry.setPositions(points.flatMap(() => [points[0].x, points[0].y, 0]))
+      const linePositions = new Float32Array(points.length * 3)
+      for (let index = 0; index < points.length; index += 1) {
+        linePositions[index * 3] = points[0].x
+        linePositions[index * 3 + 1] = points[0].y
+      }
+      lineGeometry.setPositions(linePositions)
       const lineMaterial = new LineMaterial({
         color: isPositive ? RED.getHex() : GREEN.getHex(),
         linewidth: order < 3 ? 2.05 : order < 8 ? 1.5 : 1.18,
@@ -210,7 +249,18 @@ export function EnergyScene({
       label.addEventListener('click', () => onHighlight(sector))
       labelLayer.appendChild(label)
       const labelTopPercent = 0
-      visuals.push({ sector, line, connector, marker, points, label, labelTopPercent, isPositive })
+      visuals.push({
+        sector,
+        line,
+        connector,
+        marker,
+        points,
+        linePositions,
+        label,
+        labelTopPercent,
+        currentValue: 0,
+        isPositive,
+      })
     }
     positive.forEach((sector, index) => createVisual(sector, index, positive.length, true))
     negative.forEach((sector, index) => createVisual(sector, index, negative.length, false))
@@ -219,6 +269,8 @@ export function EnergyScene({
     let lastTime = performance.now()
     let frame = 0
     let lastReportedIndex = -1
+    let lastRenderedAt = 0
+    let completed = false
     progressCallbackRef.current(0)
 
     const resize = () => {
@@ -261,30 +313,26 @@ export function EnergyScene({
     observer.observe(host)
     resize()
 
-    const updateMinuteRanking = (indices: Map<FlowVisual, number>) => {
-      const rankedAtMinute = visuals.map((visual) => {
-        const index = indices.get(visual) ?? 0
-        return { visual, value: visual.sector.minuteFlow[index]?.value ?? 0 }
-      })
-      const inflows = rankedAtMinute
-        .filter(({ value }) => value >= 0)
-        .sort((a, b) => b.value - a.value)
+    const updateRanking = () => {
+      const inflows = visuals
+        .filter((visual) => visual.currentValue >= 0)
+        .sort((a, b) => b.currentValue - a.currentValue)
       // 数值从大到小：较小流出在上，较大流出在下。
-      const outflows = rankedAtMinute
-        .filter(({ value }) => value < 0)
-        .sort((a, b) => b.value - a.value)
+      const outflows = visuals
+        .filter((visual) => visual.currentValue < 0)
+        .sort((a, b) => b.currentValue - a.currentValue)
       const ordered = [...inflows, ...outflows]
       const top = 5
       const bottom = 96
-      const groupGap = inflows.length > 0 && outflows.length > 0 ? 3 : 0
+      const groupGap = inflows.length > 0 && outflows.length > 0 ? 0.5 : 0
       const step = ordered.length > 1
         ? (bottom - top - groupGap) / (ordered.length - 1)
         : 0
 
-      inflows.forEach(({ visual }, rank) => {
+      inflows.forEach((visual, rank) => {
         visual.labelTopPercent = top + rank * step
       })
-      outflows.forEach(({ visual }, rank) => {
+      outflows.forEach((visual, rank) => {
         visual.labelTopPercent = top + (inflows.length + rank) * step + groupGap
       })
     }
@@ -302,12 +350,22 @@ export function EnergyScene({
       visual.label.classList.toggle('outflow', !isPositive)
     }
 
-    const updateLabel = (visual: FlowVisual, point: THREE.Vector3, value: number) => {
+    const updateLabel = (
+      visual: FlowVisual,
+      point: THREE.Vector3,
+      value: number,
+      updateContent: boolean,
+      updatePosition: boolean,
+    ) => {
       const targetX = host.clientWidth * 0.58
       const targetY = host.clientHeight * visual.labelTopPercent / 100
-      visual.label.style.transform = `translate(${targetX}px, ${targetY - 12}px)`
-      visual.label.innerHTML = `<strong>${visual.sector.name}</strong><span>${formatAmount(value)}</span>`
-      visual.label.style.opacity = '1'
+      if (updatePosition) {
+        visual.label.style.transform = `translate3d(${targetX}px, ${targetY - 12}px, 0)`
+      }
+      if (updateContent) {
+        const amount = visual.label.querySelector('span')
+        if (amount) amount.textContent = formatAmount(value)
+      }
       const labelWorld = new THREE.Vector3(
         (targetX / host.clientWidth) * 2 - 1,
         -(targetY / host.clientHeight) * 2 + 1,
@@ -321,11 +379,15 @@ export function EnergyScene({
     }
 
     const animate = (now: number) => {
+      if (completed) return
       frame = requestAnimationFrame(animate)
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now
       if (playingRef.current) elapsed = Math.min(PLAYBACK_SECONDS, elapsed + delta)
       const progress = elapsed / PLAYBACK_SECONDS
+      // 24 条宽线和连接线的几何更新较重，稳定在 30 FPS 比满帧抢占主线程更顺滑。
+      if (now - lastRenderedAt < FRAME_UPDATE_INTERVAL_MS && progress < 1) return
+      lastRenderedAt = now
       progressCallbackRef.current(progress)
       const referenceLength = Math.max(...visuals.map((visual) => visual.points.length), 2)
       const playbackIndex = Math.min(referenceLength - 1, Math.floor(progress * (referenceLength - 1)))
@@ -336,16 +398,7 @@ export function EnergyScene({
         if (reference) callbackRef.current(reference.sector.minuteFlow[playbackIndex].time)
       }
 
-      const minuteIndices = new Map<FlowVisual, number>()
-      visuals.forEach((visual) => {
-        const pointCount = visual.points.length
-        if (pointCount < 2) return
-        const calculatedIndex = Math.floor(progress * (pointCount - 1))
-        const localIndex = Math.max(0, Math.min(pointCount - 1, Number.isFinite(calculatedIndex) ? calculatedIndex : 0))
-        minuteIndices.set(visual, localIndex)
-      })
-      if (rankingChanged) updateMinuteRanking(minuteIndices)
-
+      let polarityChanged = false
       visuals.forEach((visual) => {
         const pointCount = visual.points.length
         if (pointCount < 2) return
@@ -356,20 +409,39 @@ export function EnergyScene({
         const fromPoint = visual.points[fromIndex]
         const toPoint = visual.points[toIndex] ?? fromPoint
         if (!fromPoint || !toPoint) return
-        const current = fromPoint.clone().lerp(toPoint, ratio)
+        visual.marker.position.copy(fromPoint).lerp(toPoint, ratio)
         const fromValue = visual.sector.minuteFlow[fromIndex]?.value ?? 0
         const toValue = visual.sector.minuteFlow[toIndex]?.value ?? fromValue
-        const value = fromValue + (toValue - fromValue) * ratio
-        updateVisualStyle(visual, value)
-        const visiblePoints = visual.points.map((point, index) => {
-          if (index <= fromIndex) return point
-          return current
-        })
-        visual.line.geometry.setPositions(visiblePoints.flatMap((point) => [point.x, point.y, point.z]))
-        visual.marker.position.copy(current)
-        updateLabel(visual, current, value)
+        visual.currentValue = fromValue + (toValue - fromValue) * ratio
+        const nextPositive = visual.currentValue >= 0
+        polarityChanged ||= visual.isPositive !== nextPositive
+        updateVisualStyle(visual, visual.currentValue)
+      })
+
+      const rankingUpdated = polarityChanged
+        || (rankingChanged && (playbackIndex % RANKING_STEP_MINUTES === 0 || progress >= 1))
+      if (rankingUpdated) updateRanking()
+
+      visuals.forEach((visual) => {
+        const pointCount = visual.points.length
+        if (pointCount < 2) return
+        const fromIndex = Math.max(0, Math.min(pointCount - 1, Math.floor(progress * (pointCount - 1))))
+        const current = visual.marker.position
+        for (let index = 0; index < pointCount; index += 1) {
+          const point = index <= fromIndex ? visual.points[index] : current
+          const offset = index * 3
+          visual.linePositions[offset] = point.x
+          visual.linePositions[offset + 1] = point.y
+          visual.linePositions[offset + 2] = point.z
+        }
+        visual.line.geometry.setPositions(visual.linePositions)
+        updateLabel(visual, current, visual.currentValue, rankingChanged, rankingUpdated)
       })
       renderer.render(scene, camera)
+      if (progress >= 1) {
+        completed = true
+        cancelAnimationFrame(frame)
+      }
     }
     frame = requestAnimationFrame(animate)
 
@@ -384,6 +456,7 @@ export function EnergyScene({
       })
       gridLines.forEach((line) => line.geometry.dispose())
       gridMaterial.dispose()
+      areaGradientGeometry.dispose(); areaGradientMaterial.dispose(); areaGradientTexture.dispose()
       zeroLine.geometry.dispose(); (zeroLine.material as THREE.Material).dispose()
       labelLayer.remove(); axisLayer.remove()
       renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove()
