@@ -8,6 +8,7 @@
     "collector": "node server/fundFlowCollector.mjs",
     "dev:full": "node server/dev.mjs",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview --host 0.0.0.0"
   },
@@ -23,6 +24,7 @@
     "@types/three": "^0.185.4",
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^7.0.2",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "vitest": "^4.1.11"
   }
 }

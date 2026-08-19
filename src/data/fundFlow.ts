@@ -1,4 +1,5 @@
 import type { DailyFundFlow, MinuteFlowPoint, SectorFlow, SessionFlow } from '../types'
+import { calculateBoardHeatScore, selectPublicBoards } from './boardScoring'
 
 interface TencentLeader {
   code?: string
@@ -42,7 +43,7 @@ const ALLOWED_BOARD_NAMES = new Set([
   '新能源汽车', '风电', '储能', '充电桩', '智能驾驶', '光伏', '商业航天',
   '电力', '电力设备', '电网设备', '煤炭', '化工', '生物医药', '医药', '医疗',
   '白酒', '猪肉', '养殖', '黄金', '白银', '稀土', '有色金属', '银行',
-  '证券', '保险', '房地产', '军工', '低空经济', '软件开发', '数据中心', '云计算',
+  '证券', '保险', '房地产', '军工', '低空经济', '软件开发', '云计算',
   '汽车整车', '食品饮料', '家电', '农业', '石油天然气', '钢铁', '航运港口',
   '旅游酒店',
 ])
@@ -51,7 +52,7 @@ const BOARD_NAME_NORMALIZERS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /半导体材料/u, name: '半导体材料' },
   { pattern: /先进封装|Chiplet/u, name: '先进封装' },
   { pattern: /创新药/u, name: '创新药' },
-  { pattern: /生物医药/u, name: '生物医药' },
+  { pattern: /生物医药/u, name: '生物医药' }, 
   { pattern: /人形机器人/u, name: '人形机器人' },
   { pattern: /半导体/u, name: '半导体' },
   { pattern: /共封装光模块|光模块|CPO/u, name: 'CPO' },
@@ -68,7 +69,7 @@ const BOARD_NAME_NORMALIZERS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /光通信/u, name: '光通信' },
   { pattern: /通信设备/u, name: '通信设备' },
   { pattern: /玻璃基板/u, name: '玻璃基板' },
-  { pattern: /数据中心/u, name: '数据中心' },
+  // { pattern: /数据中心/u, name: '数据中心' },
   { pattern: /云计算/u, name: '云计算' },
   { pattern: /软件开发/u, name: '软件开发' },
   { pattern: /锂矿|锂资源|盐湖提锂/u, name: '锂矿' },
@@ -159,7 +160,7 @@ function normalize(values: number[]): number[] {
 }
 
 /**
- * 资金流、涨跌波动、换手和成交额共同决定热度，避免页面长期只展示净流入榜。
+ * 资金流绝对金额主导候选池，涨跌幅与振幅补充价格活跃度。
  * 同时保留明显流出板块，让画面能表达资金分化而不是单边排名。
  */
 function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
@@ -170,8 +171,6 @@ function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
   const flows = normalize(valid.map((row) => Math.abs(numberOf(row.zljlr))))
   const changes = normalize(valid.map((row) => Math.abs(numberOf(row.zdf))))
   const amplitudes = normalize(valid.map((row) => Math.abs(numberOf(row.zf))))
-  const turnovers = normalize(valid.map((row) => Math.log1p(numberOf(row.turnover))))
-  const turnoverRates = normalize(valid.map((row) => numberOf(row.hsl)))
 
   const scored = valid.map((row, index) => {
     const name = cleanBoardName(row.name!)
@@ -185,11 +184,11 @@ function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
       turnover: numberOf(row.turnover) * 10_000,
       turnoverRate: numberOf(row.hsl),
       amplitude: numberOf(row.zf),
-      heatScore: flows[index] * 0.36
-        + changes[index] * 0.23
-        + amplitudes[index] * 0.15
-        + turnovers[index] * 0.16
-        + turnoverRates[index] * 0.1,
+      heatScore: calculateBoardHeatScore({
+        flow: flows[index],
+        change: changes[index],
+        amplitude: amplitudes[index],
+      }),
       canonicalPriority: getCanonicalBoardPriority(row.name!, name, !row.code!.startsWith('pt02')),
       minuteFlow: [],
     }
@@ -200,19 +199,7 @@ function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
     .sort((a, b) => b.canonicalPriority - a.canonicalPriority || b.heatScore - a.heatScore)
     .filter((item, index, items) => items.findIndex((candidate) => candidate.name === item.name) === index)
     .sort((a, b) => b.heatScore - a.heatScore)
-  const strongestMovers = [
-    ...representativeBoards.filter((item) => item.changePercent >= 0).sort((a, b) => b.changePercent - a.changePercent).slice(0, 4),
-    ...representativeBoards.filter((item) => item.changePercent < 0).sort((a, b) => a.changePercent - b.changePercent).slice(0, 4),
-  ]
-  const mustInclude = [
-    ...representativeBoards.filter((item) => item.netInflow >= 0).sort((a, b) => b.netInflow - a.netInflow).slice(0, 4),
-    ...representativeBoards.filter((item) => item.netInflow < 0).sort((a, b) => a.netInflow - b.netInflow).slice(0, 4),
-    ...strongestMovers,
-  ]
-  const selected = [...new Map([
-    ...mustInclude,
-    ...representativeBoards,
-  ].map((item) => [item.name, item])).values()].slice(0, SELECTED_COUNT)
+  const selected = selectPublicBoards(representativeBoards, SELECTED_COUNT)
   selected.forEach((sector, index) => { sector.rank = index + 1 })
   return selected
 }
