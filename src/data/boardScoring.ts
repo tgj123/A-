@@ -1,5 +1,5 @@
 export const PINNED_BOARD_NAMES = [
-  '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人',
+  '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天',
 ] as const
 
 export interface BoardCandidate {

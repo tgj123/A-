@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { SectorFlow } from '../types'
-import { buildTodaySectors, getFlowRoute, getRotationFrame } from './rotationModel'
+import {
+  FLOW_VISIBLE_SECTORS,
+  buildTodaySectors,
+  getFlowRoute,
+  getRotationFrame,
+} from './rotationModel'
 
 function sector(
   code: string,
@@ -81,8 +86,8 @@ describe('getRotationFrame', () => {
     )
   })
 
-  it('固定板块始终进入可见 16 项', () => {
-    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人']
+  it('固定八个板块始终进入可见 16 项', () => {
+    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天']
     const pinned = pinnedNames.map((name, index) => ({ ...sector(`P${index}`, [-100 - index]), name }))
     const stronger = Array.from({ length: 20 }, (_, index) => sector(`S${index}`, [1000 - index]))
 
@@ -94,8 +99,8 @@ describe('getRotationFrame', () => {
     )
   })
 
-  it('按固定七个、资金流入流出各三个及涨跌幅代表组成均衡榜单', () => {
-    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人']
+  it('按固定八个、资金流入流出及涨跌幅代表组成均衡榜单', () => {
+    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天']
     const pinned = pinnedNames.map((name, index) => ({
       ...sector(`P${index}`, [index - 3]), name, changePercent: 0,
     }))
@@ -118,16 +123,14 @@ describe('getRotationFrame', () => {
     expect(codes.has('LOSS')).toBe(true)
   })
 
-  it('展示上限为 24 时保留公共候选池全部板块并连续编号', () => {
+  it('页面默认展示 20 个板块', () => {
     const sectors = Array.from({ length: 24 }, (_, index) => sector(String(index + 1), [index - 12]))
 
-    const frame = getRotationFrame(sectors, 0, 24)
+    const frame = getRotationFrame(sectors, 0, FLOW_VISIBLE_SECTORS)
 
-    expect(frame).toHaveLength(24)
-    expect(new Set(frame.map((item) => item.sector.code)).size).toBe(24)
-    expect(frame.map((item) => item.rank)).toEqual(
-      Array.from({ length: 24 }, (_, index) => index + 1),
-    )
+    expect(FLOW_VISIBLE_SECTORS).toBe(20)
+    expect(frame).toHaveLength(20)
+    expect(new Set(frame.map((item) => item.sector.code)).size).toBe(20)
   })
 
   it('以整轮最大绝对金额生成统一且稳定的左右刻度', () => {

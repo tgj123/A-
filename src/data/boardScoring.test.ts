@@ -12,23 +12,23 @@ describe('calculateBoardHeatScore', () => {
 })
 
 describe('selectPinnedBoards', () => {
-  it('固定保留七个指定方向并用评分靠前板块补足名额', () => {
+  it('固定保留八个指定方向并用评分靠前板块补足名额', () => {
     const boards = [
-      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人',
+      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天',
       '高分A', '高分B', '低分C',
-    ].map((name, index) => ({ name, heatScore: index < 7 ? 0 : 10 - index }))
+    ].map((name, index) => ({ name, heatScore: index < 8 ? 0 : 11 - index }))
 
-    const selected = selectPinnedBoards(boards, 8)
+    const selected = selectPinnedBoards(boards, 9)
 
     expect(selected.map((item) => item.name)).toEqual([
-      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '高分A',
+      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '高分A',
     ])
   })
 })
 
 describe('selectPublicBoards', () => {
   it('同时保留固定板块及资金和涨跌幅前后四名', () => {
-    const pinned = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人']
+    const pinned = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天']
       .map((name) => ({ name, heatScore: 0, netInflow: 0, changePercent: 0 }))
     const inflows = Array.from({ length: 4 }, (_, index) => ({
       name: `流入${index}`, heatScore: 0, netInflow: 100 - index, changePercent: 0,

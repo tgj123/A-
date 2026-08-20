@@ -2,13 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { loadDailyFlow } from '../data/fundFlow'
 import type { DailyFundFlow, SectorFlow } from '../types'
 import { formatAmount } from '../utils/format'
-import { buildTodaySectors, getRotationFrame, type FlowRoute } from './rotationModel'
+import {
+  FLOW_VISIBLE_SECTORS,
+  buildTodaySectors,
+  getRotationFrame,
+  type FlowRoute,
+} from './rotationModel'
 import './rotation.css'
 
-const PLAYBACK_MS = 12_000
+const PLAYBACK_MS = 8_000
 const END_HOLD_MS = 4_000
-const VISIBLE_SECTORS = 24
-const ROW_HEIGHT = 29
+const ROW_HEIGHT = 34
+const BAR_MAX_PERCENT = 78
 
 interface RotationPageProps {
   mode: FlowRoute
@@ -16,23 +21,6 @@ interface RotationPageProps {
 
 function getPointCount(sectors: SectorFlow[]): number {
   return Math.max(1, ...sectors.map((sector) => sector.minuteFlow.length))
-}
-
-function getFrameTime(sectors: SectorFlow[], pointIndex: number, fallback: string): string {
-  for (const sector of sectors) {
-    const point = sector.minuteFlow[Math.min(pointIndex, sector.minuteFlow.length - 1)]
-    if (point?.time) return point.time
-  }
-  return fallback
-}
-
-function RankDelta({ value }: { value: number }) {
-  if (value === 0) return <span className="rotation-rank-delta stable">—</span>
-  return (
-    <span className={`rotation-rank-delta ${value > 0 ? 'up' : 'down'}`}>
-      {value > 0 ? '↑' : '↓'}{Math.abs(value)}
-    </span>
-  )
 }
 
 export function RotationPage({ mode }: RotationPageProps) {
@@ -80,12 +68,9 @@ export function RotationPage({ mode }: RotationPageProps) {
   const pointCount = getPointCount(sectors)
   const pointIndex = Math.min(pointCount - 1, Math.floor(progress * pointCount))
   const frame = useMemo(
-    () => getRotationFrame(sectors, pointIndex, VISIBLE_SECTORS),
+    () => getRotationFrame(sectors, pointIndex, FLOW_VISIBLE_SECTORS),
     [pointIndex, sectors],
   )
-  const startTime = '09:30'
-  const currentTime = getFrameTime(sectors, pointIndex, startTime)
-
   useEffect(() => {
     if (sectors.length === 0) return
     const startedAt = performance.now()
@@ -125,18 +110,7 @@ export function RotationPage({ mode }: RotationPageProps) {
 
   return (
     <main className="rotation-page">
-      <header className="rotation-header">
-        <div>
-          <h1></h1>
-          <p className="rotation-subtitle">
-            {/* {mode === 'am' ? '上午盘' : '今日盘'} · {formatDate(data.tradingDate)} */}
-          </p>
-        </div>
-        <div className="rotation-clock" aria-label={`当前播放时间 ${currentTime}`}>
-          <span>当前时间</span>
-          <strong>{currentTime}</strong>
-        </div>
-      </header>
+      <header className="rotation-header" aria-hidden="true" />
 
       <section className="rotation-summary" aria-label="资金方向说明">
         <span className="rotation-legend outflow"><i />资金流出</span>
@@ -147,7 +121,7 @@ export function RotationPage({ mode }: RotationPageProps) {
       <section className="rotation-board" aria-label="板块资金动态排名">
         <div className="rotation-axis" aria-hidden="true" />
         {frame.map((item, index) => {
-          const width = `${Math.min(100, Math.abs(item.value) / item.scaleMax * 100)}%`
+          const width = `${Math.min(BAR_MAX_PERCENT, Math.abs(item.value) / item.scaleMax * BAR_MAX_PERCENT)}%`
           const positive = item.value >= 0
           return (
             <article
@@ -156,18 +130,24 @@ export function RotationPage({ mode }: RotationPageProps) {
               key={item.sector.code}
             >
               <div className="rotation-sector-meta">
-                <strong className="rotation-rank">{String(item.rank).padStart(2, '0')}</strong>
                 <span className="rotation-sector-name">{item.sector.name}</span>
-                <RankDelta value={item.rankChange} />
               </div>
               <div className="rotation-bar-area">
                 <div className="rotation-half negative-half">
-                  {!positive && <span className="rotation-bar" style={{ width }} />}
-                  {!positive && <strong className="rotation-amount">{formatAmount(item.value)}</strong>}
+                  {!positive && (
+                    <div className="rotation-bar-track" style={{ width }}>
+                      <strong className="rotation-amount">{formatAmount(item.value)}</strong>
+                      <span className="rotation-bar" />
+                    </div>
+                  )}
                 </div>
                 <div className="rotation-half positive-half">
-                  {positive && <span className="rotation-bar" style={{ width }} />}
-                  {positive && <strong className="rotation-amount">{formatAmount(item.value)}</strong>}
+                  {positive && (
+                    <div className="rotation-bar-track" style={{ width }}>
+                      <span className="rotation-bar" />
+                      <strong className="rotation-amount">{formatAmount(item.value)}</strong>
+                    </div>
+                  )}
                 </div>
               </div>
             </article>

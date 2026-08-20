@@ -11,33 +11,22 @@
   width: min(100%, 720px);
   min-height: 100svh;
   margin: 0 auto;
-  padding: max(18px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  padding: max(18px, env(safe-area-inset-top)) 36px max(12px, env(safe-area-inset-bottom));
   color: var(--rotation-ink);
   background: linear-gradient(180deg, #fff 0%, #fafbfc 100%);
   overflow: hidden;
 }
 
 .rotation-header {
-  min-height: 70px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 4px 4px;
+  min-height: 80px;
 }
-.rotation-eyebrow { margin: 0 0 5px; color: #a4aab2; font-size: 8px; font-weight: 750; letter-spacing: .16em; }
-.rotation-header h1 { margin: 0; font-size: clamp(23px, 7vw, 34px); line-height: 1.08; letter-spacing: -.04em; }
-.rotation-subtitle { margin: 7px 0 0; color: var(--rotation-muted); font-size: 11px; font-weight: 600; }
-.rotation-clock { flex: none; min-width: 84px; padding: 9px 10px; border: 1px solid #e5e8eb; border-radius: 13px; background: rgba(255, 255, 255, .9); text-align: right; box-shadow: 0 8px 24px rgba(30, 38, 48, .06); }
-.rotation-clock span { display: block; margin-bottom: 4px; color: #9198a1; font-size: 8px; letter-spacing: .08em; }
-.rotation-clock strong { font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1; }
 
 .rotation-summary {
   height: 32px;
   display: grid;
   grid-template-columns: 1fr 50px 1fr;
   align-items: center;
-  margin-left: 102px;
+  margin-left: 88px;
   color: #8b929b;
   font-size: 9px;
   font-weight: 650;
@@ -51,56 +40,50 @@
 
 .rotation-board {
   position: relative;
-  height: 696px;
+  height: 680px;
   overflow: hidden;
   border-top: 1px solid #eef0f2;
   border-bottom: 1px solid #eef0f2;
   background: linear-gradient(90deg, rgba(63,146,112,.025), transparent 48%, transparent 52%, rgba(217,94,90,.025));
 }
-.rotation-axis { position: absolute; top: 0; bottom: 0; left: calc(102px + (100% - 102px) / 2); width: 1px; background: repeating-linear-gradient(to bottom, #aeb4bc 0 4px, transparent 4px 8px); z-index: 2; }
+.rotation-axis { position: absolute; top: 0; bottom: 0; left: calc(88px + (100% - 88px) / 2); width: 1px; background: repeating-linear-gradient(to bottom, #aeb4bc 0 4px, transparent 4px 8px); z-index: 2; }
 .rotation-row {
   position: absolute;
   inset: 0 0 auto 0;
-  height: 29px;
+  height: 34px;
   display: grid;
-  grid-template-columns: 102px minmax(0, 1fr);
+  grid-template-columns: 88px minmax(0, 1fr);
   align-items: center;
   border-bottom: 1px solid rgba(235, 238, 241, .8);
   transition: transform .45s cubic-bezier(.2,.7,.2,1), opacity .3s ease;
   will-change: transform;
 }
 .rotation-row.leader { background: rgba(217, 94, 90, .035); }
-.rotation-sector-meta { min-width: 0; display: grid; grid-template-columns: 19px minmax(0, 1fr) 20px; align-items: center; gap: 2px; padding-right: 5px; }
-.rotation-rank { color: #a1a7af; font-size: 9px; font-variant-numeric: tabular-nums; }
-.rotation-row.leader .rotation-rank { color: var(--rotation-red); }
-.rotation-sector-name { min-width: 0; overflow: hidden; color: #383d44; font-size: 9px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.rotation-rank-delta { font-size: 7px; font-weight: 750; text-align: right; font-variant-numeric: tabular-nums; }
-.rotation-rank-delta.up { color: var(--rotation-red); }
-.rotation-rank-delta.down { color: var(--rotation-green); }
-.rotation-rank-delta.stable { color: #c2c6cb; }
+.rotation-sector-meta { min-width: 0; padding-right: 8px; }
+.rotation-sector-name { display: block; min-width: 0; overflow: hidden; color: #383d44; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .rotation-bar-area { min-width: 0; height: 100%; display: grid; grid-template-columns: 1fr 1fr; }
 .rotation-half { position: relative; height: 100%; display: flex; align-items: center; }
 .rotation-half.negative-half { justify-content: flex-end; }
 .rotation-half.positive-half { justify-content: flex-start; }
-.rotation-bar { height: 12px; min-width: 2px; border-radius: 3px; transition: width .2s linear; box-shadow: 0 2px 7px rgba(0,0,0,.07); will-change: width; }
+.rotation-bar-track { position: relative; height: 16px; min-width: 2px; transition: width .2s linear; will-change: width; }
+.rotation-bar { display: block; width: 100%; height: 100%; border-radius: 3px; box-shadow: 0 2px 7px rgba(0,0,0,.07); }
 .rotation-row.positive .rotation-bar { background: linear-gradient(90deg, var(--rotation-red-soft), var(--rotation-red)); border-radius: 0 4px 4px 0; }
 .rotation-row.negative .rotation-bar { background: linear-gradient(90deg, var(--rotation-green), var(--rotation-green-soft)); border-radius: 4px 0 0 4px; }
 .rotation-row.leader .rotation-bar { box-shadow: 0 2px 12px rgba(217,94,90,.25); }
-.rotation-amount { position: absolute; top: 50%; color: #555c65; font-size: 8px; font-weight: 750; font-variant-numeric: tabular-nums; transform: translateY(-50%); white-space: nowrap; z-index: 3; }
-.positive-half .rotation-amount { left: 5px; }
-.negative-half .rotation-amount { right: 5px; }
+.rotation-amount { position: absolute; top: 50%; color: #555c65; font-size: 10px; font-weight: 750; font-variant-numeric: tabular-nums; transform: translateY(-50%); white-space: nowrap; z-index: 3; }
+.positive-half .rotation-amount { left: calc(100% + 5px); }
+.negative-half .rotation-amount { right: calc(100% + 5px); }
 
-.rotation-disclaimer { padding: 11px 0 2px; color: #8a9199; font-size: 9px; font-weight: 550; text-align: center; }
+.rotation-disclaimer { padding: 36px 0 2px; color: #4f4d4d; font-size: 10px; font-weight: 550; text-align: center; }
 .rotation-message { width: 100%; height: 100svh; display: grid; place-items: center; margin: 0; color: #757d86; background: #fff; font-size: 12px; }
 
 @media (max-width: 380px) {
   .rotation-page { padding-left: 8px; padding-right: 8px; }
-  .rotation-summary { margin-left: 92px; }
-  .rotation-axis { left: calc(92px + (100% - 92px) / 2); }
-  .rotation-row { grid-template-columns: 92px minmax(0, 1fr); }
-  .rotation-sector-meta { grid-template-columns: 18px minmax(0, 1fr) 19px; }
-  .rotation-sector-name { font-size: 9px; }
-  .rotation-amount { font-size: 7px; }
+  .rotation-summary { margin-left: 78px; }
+  .rotation-axis { left: calc(78px + (100% - 78px) / 2); }
+  .rotation-row { grid-template-columns: 78px minmax(0, 1fr); }
+  .rotation-sector-name { font-size: 11px; }
+  .rotation-amount { font-size: 9px; }
 }
 
 @media (min-width: 760px) {

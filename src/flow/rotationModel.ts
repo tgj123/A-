@@ -3,6 +3,8 @@ import { PINNED_BOARD_NAMES } from '../data/boardScoring'
 
 export type FlowRoute = 'am' | 'today'
 
+export const FLOW_VISIBLE_SECTORS = 20
+
 export interface RotationFrameItem {
   sector: SectorFlow
   value: number
@@ -84,7 +86,7 @@ function selectVisible(sectors: SectorFlow[], pointIndex: number, limit: number)
 export function getRotationFrame(
   sectors: SectorFlow[],
   pointIndex: number,
-  visibleLimit = 16,
+  visibleLimit = FLOW_VISIBLE_SECTORS,
 ): RotationFrameItem[] {
   const scaleMax = Math.max(
     1,
