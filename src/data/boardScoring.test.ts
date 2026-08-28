@@ -12,23 +12,23 @@ describe('calculateBoardHeatScore', () => {
 })
 
 describe('selectPinnedBoards', () => {
-  it('固定保留八个指定方向并用评分靠前板块补足名额', () => {
+  it('固定保留九个指定方向并用评分靠前板块补足名额', () => {
     const boards = [
-      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天',
+      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '黄金',
       '高分A', '高分B', '低分C',
-    ].map((name, index) => ({ name, heatScore: index < 8 ? 0 : 11 - index }))
+    ].map((name, index) => ({ name, heatScore: index < 9 ? 0 : 12 - index }))
 
-    const selected = selectPinnedBoards(boards, 9)
+    const selected = selectPinnedBoards(boards, 10)
 
     expect(selected.map((item) => item.name)).toEqual([
-      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '高分A',
+      '医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '黄金', '高分A',
     ])
   })
 })
 
 describe('selectPublicBoards', () => {
-  it('同时保留固定板块及资金和涨跌幅前后四名', () => {
-    const pinned = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天']
+  it('候选池容量有限时优先保留九个固定板块', () => {
+    const pinned = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '黄金']
       .map((name) => ({ name, heatScore: 0, netInflow: 0, changePercent: 0 }))
     const inflows = Array.from({ length: 4 }, (_, index) => ({
       name: `流入${index}`, heatScore: 0, netInflow: 100 - index, changePercent: 0,
@@ -42,14 +42,17 @@ describe('selectPublicBoards', () => {
     const losses = Array.from({ length: 4 }, (_, index) => ({
       name: `跌幅${index}`, heatScore: 0, netInflow: 0, changePercent: -10 + index,
     }))
+    const boards = [...pinned, ...inflows, ...outflows, ...gains, ...losses]
 
-    const selected = selectPublicBoards([...pinned, ...inflows, ...outflows, ...gains, ...losses], 24)
-    const names = new Set(selected.map((item) => item.name))
+    const limited = selectPublicBoards(boards, 24)
+    const complete = selectPublicBoards(boards, 25)
+    const limitedNames = new Set(limited.map((item) => item.name))
+    const completeNames = new Set(complete.map((item) => item.name))
 
-    expect(pinned.every((item) => names.has(item.name))).toBe(true)
-    expect(inflows.every((item) => names.has(item.name))).toBe(true)
-    expect(outflows.every((item) => names.has(item.name))).toBe(true)
-    expect(gains.every((item) => names.has(item.name))).toBe(true)
-    expect(losses.every((item) => names.has(item.name))).toBe(true)
+    expect(pinned.every((item) => limitedNames.has(item.name))).toBe(true)
+    expect(inflows.every((item) => completeNames.has(item.name))).toBe(true)
+    expect(outflows.every((item) => completeNames.has(item.name))).toBe(true)
+    expect(gains.every((item) => completeNames.has(item.name))).toBe(true)
+    expect(losses.every((item) => completeNames.has(item.name))).toBe(true)
   })
 })

@@ -3,8 +3,8 @@
   color: #17191d;
   background: #f5f5f5;
   font-synthesis: none;
-  --red: #ce6864;
-  --green: #559b7d;
+  --red: #b94f4b;
+  --green: #367e61;
 }
 
 * { box-sizing: border-box; }
@@ -39,7 +39,7 @@ button { font: inherit; }
 .playback-track { position: relative; flex: 1; height: 6px; overflow: visible; border-radius: 999px; background: #edf0f3; box-shadow: inset 0 1px 2px rgba(24, 31, 40, .07); }
 .playback-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, #e58a86 0%, #dd706d 100%); will-change: width; }
 .playback-thumb { position: absolute; top: 50%; width: 12px; height: 12px; border: 3px solid #fff; border-radius: 50%; background: #dd706d; box-shadow: 0 1px 5px rgba(178, 70, 67, .32); transform: translate(-50%, -50%); will-change: left; }
-.replay-button { flex: none; min-height: 28px; display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border: 1px solid #e2e5e9; border-radius: 9px; color: #4e555e; background: #f8f9fa; cursor: pointer; font-size: 10px; line-height: 1; transition: color .2s ease, border-color .2s ease, background .2s ease, transform .15s ease; }
+.replay-button { flex: none; min-height: 28px; display: inline-flex; align-items: center; padding: 5px 8px; border: 1px solid #e2e5e9; border-radius: 9px; color: #4e555e; background: #f8f9fa; cursor: pointer; font-size: 10px; line-height: 1; transition: color .2s ease, border-color .2s ease, background .2s ease, transform .15s ease; }
 .replay-button svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .replay-button:hover { color: #cb625f; border-color: #e9b4b1; background: #fff7f6; }
 .replay-button:active { transform: scale(.96); }
@@ -49,13 +49,13 @@ button { font: inherit; }
 .energy-scene { position: absolute; inset: 0; overflow: hidden; background: #fff; }
 .energy-scene canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .flow-label-layer, .flow-axis-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.flow-label { position: absolute; left: 0; top: 0; width: max-content; max-width: 42%; height: 25px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 7px; border: 1.25px solid currentColor; border-radius: 7px; background: rgba(255,255,255,.96); font-size: 10px; line-height: 1; white-space: nowrap; pointer-events: none; transition: transform .07s linear, color .1s ease, border-color .1s ease; will-change: transform; }
+.flow-label { position: absolute; left: 0; top: 0; width: max-content; max-width: 42%; height: 25px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 7px; border: 1.5px solid currentColor; border-radius: 7px; background: rgba(255,255,255,.98); box-shadow: 0 1px 4px rgba(31, 39, 47, .08); font-size: 10px; line-height: 1; white-space: nowrap; pointer-events: none; transition: transform .07s linear, color .1s ease, border-color .1s ease; will-change: transform; }
 .flow-label.inflow { color: var(--red); }
 .flow-label.outflow { color: var(--green); }
-.flow-label strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; opacity: .96; }
-.flow-label span { flex: none; font-weight: 650; opacity: .94; }
-.y-axis-tick { position: absolute; min-width: 42px; color: #5f6670; background: rgba(255,255,255,.9); padding-right: 4px; font-size: 10px; text-align: right; transform: translate(-100%, -50%); z-index: 2; }
-.x-axis-tick { position: absolute; color: #646c75; background: rgba(255,255,255,.9); padding: 1px 2px; font-size: 9px; transform: translate(-50%, -50%); z-index: 2; }
+.flow-label strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 650; }
+.flow-label span { flex: none; font-weight: 700; }
+.y-axis-tick { position: absolute; min-width: 42px; color: #404750; background: rgba(255,255,255,.96); padding-right: 4px; font-size: 10px; font-weight: 650; text-align: right; transform: translate(-100%, -50%); z-index: 2; }
+.x-axis-tick { position: absolute; color: #454c55; background: rgba(255,255,255,.96); padding: 1px 2px; font-size: 9px; font-weight: 650; transform: translate(-50%, -50%); z-index: 2; }
 .chart-disclaimer { min-height: 54px; display: grid; place-content: center; padding-top: 9px; color: #747b84; text-align: center; font-size: 10px; font-weight: 550; line-height: 1.55; }
 .chart-disclaimer p { margin: 0; }
 

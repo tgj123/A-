@@ -121,7 +121,7 @@ export function App() {
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M20 11a8 8 0 1 1-2.34-5.66L20 7.68M20 3v4.68h-4.68" />
               </svg>
-              <span>重新播放</span>
+              <span></span>
             </button>
           </div>
         </div>
@@ -139,7 +139,6 @@ export function App() {
       </section>
       <footer className="chart-disclaimer">
         <p>以上内容仅供参考，不构成任何投资建议</p>
-        <p>市场有风险，投资需谨慎</p>
       </footer>
     </main>
   )

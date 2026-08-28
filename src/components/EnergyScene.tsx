@@ -5,6 +5,7 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import type { SectorFlow, SessionKey } from '../types'
 import { formatAmount } from '../utils/format'
+import { getFlowLineStyle } from './flowLineStyle'
 
 interface EnergySceneProps {
   sectors: SectorFlow[]
@@ -105,6 +106,7 @@ export function EnergyScene({
     const ranked = [...sectors].filter((item) => item.minuteFlow.length > 1).sort((a, b) => b.netInflow - a.netInflow).slice(0, 24)
     const positive = ranked.filter((item) => item.netInflow >= 0)
     const negative = ranked.filter((item) => item.netInflow < 0)
+    const maxAbsoluteNetInflow = Math.max(...ranked.map((sector) => Math.abs(sector.netInflow)), 1)
     const allValues = ranked.flatMap((sector) => sector.minuteFlow.map((point) => point.value))
     const observedPositive = Math.max(...allValues, 1)
     const observedNegative = Math.max(...allValues.map((value) => -value), 1)
@@ -165,7 +167,7 @@ export function EnergyScene({
     areaGradient.position.set((gridLeft + gridRight) / 2, (gradientTop + gradientBottom) / 2, -0.5)
     scene.add(areaGradient)
 
-    const gridMaterial = new THREE.LineBasicMaterial({ color: '#d9dde2', transparent: true, opacity: 0.7 })
+    const gridMaterial = new THREE.LineBasicMaterial({ color: '#c1c7ce', transparent: true, opacity: 0.86 })
     const gridLines: THREE.Line[] = []
     yTickWorldPositions.forEach((y, index) => {
       if (index === 1) return
@@ -178,7 +180,7 @@ export function EnergyScene({
     })
     const zeroLine = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(gridLeft, zeroY, 0), new THREE.Vector3(gridRight, zeroY, 0)]),
-      new THREE.LineDashedMaterial({ color: '#87919c', dashSize: 0.12, gapSize: 0.09 }),
+      new THREE.LineDashedMaterial({ color: '#626d78', dashSize: 0.14, gapSize: 0.08 }),
     )
     zeroLine.computeLineDistances()
     scene.add(zeroLine)
@@ -200,7 +202,7 @@ export function EnergyScene({
     })
 
     const visuals: FlowVisual[] = []
-    const createVisual = (sector: SectorFlow, order: number, total: number, isPositive: boolean) => {
+    const createVisual = (sector: SectorFlow, isPositive: boolean) => {
       const count = sector.minuteFlow.length
       const points = sector.minuteFlow.map((point, index) => new THREE.Vector3(
         chartLeft + index / Math.max(count - 1, 1) * (chartRight - chartLeft),
@@ -214,11 +216,12 @@ export function EnergyScene({
         linePositions[index * 3 + 1] = points[0].y
       }
       lineGeometry.setPositions(linePositions)
+      const lineStyle = getFlowLineStyle(sector.netInflow, maxAbsoluteNetInflow)
       const lineMaterial = new LineMaterial({
         color: isPositive ? RED.getHex() : GREEN.getHex(),
-        linewidth: order < 3 ? 2.05 : order < 8 ? 1.5 : 1.18,
+        linewidth: lineStyle.linewidth,
         transparent: true,
-        opacity: order < 3 ? 0.9 : order < 8 ? 0.66 : 0.4,
+        opacity: lineStyle.opacity,
         worldUnits: false,
       })
       lineMaterial.resolution.set(host.clientWidth, host.clientHeight)
@@ -226,7 +229,7 @@ export function EnergyScene({
       line.computeLineDistances()
       scene.add(line)
       const marker = new THREE.Mesh(
-        new THREE.CircleGeometry(order < 3 ? 0.07 : 0.052, 20),
+        new THREE.CircleGeometry(0.052 + Math.sqrt(Math.abs(sector.netInflow) / maxAbsoluteNetInflow) * 0.018, 20),
         new THREE.MeshBasicMaterial({ color: isPositive ? RED : GREEN }),
       )
       marker.position.copy(points[0])
@@ -234,10 +237,10 @@ export function EnergyScene({
       const connectorGeometry = new LineGeometry()
       connectorGeometry.setPositions([points[0].x, points[0].y, 0, points[0].x, points[0].y, 0])
       const connectorMaterial = new LineMaterial({
-        color: isPositive ? 0xe4aaa7 : 0x9bcbb5,
-        linewidth: 1.15,
+        color: isPositive ? 0xd38b87 : 0x72b496,
+        linewidth: 1.35,
         transparent: true,
-        opacity: 0.62,
+        opacity: 0.78,
         worldUnits: false,
       })
       connectorMaterial.resolution.set(host.clientWidth, host.clientHeight)
@@ -262,8 +265,8 @@ export function EnergyScene({
         isPositive,
       })
     }
-    positive.forEach((sector, index) => createVisual(sector, index, positive.length, true))
-    negative.forEach((sector, index) => createVisual(sector, index, negative.length, false))
+    positive.forEach((sector) => createVisual(sector, true))
+    negative.forEach((sector) => createVisual(sector, false))
 
     let elapsed = 0
     let lastTime = performance.now()
@@ -345,7 +348,7 @@ export function EnergyScene({
       ;(visual.line.material as LineMaterial).color.copy(color)
       ;(visual.marker.material as THREE.MeshBasicMaterial).color.copy(color)
       const connectorMaterial = visual.connector.material as LineMaterial
-      connectorMaterial.color.setHex(isPositive ? 0xe4aaa7 : 0x9bcbb5)
+      connectorMaterial.color.setHex(isPositive ? 0xd38b87 : 0x72b496)
       visual.label.classList.toggle('inflow', isPositive)
       visual.label.classList.toggle('outflow', !isPositive)
     }
@@ -375,7 +378,7 @@ export function EnergyScene({
         point.x, point.y, point.z,
         labelWorld.x + 0.015, labelWorld.y, 0,
       ])
-      ;(visual.connector.material as LineMaterial).opacity = 0.62
+      ;(visual.connector.material as LineMaterial).opacity = 0.78
     }
 
     const animate = (now: number) => {

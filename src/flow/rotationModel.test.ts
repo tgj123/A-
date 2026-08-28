@@ -5,6 +5,7 @@ import {
   buildTodaySectors,
   getFlowRoute,
   getRotationFrame,
+  hasPlayableSectors,
 } from './rotationModel'
 
 function sector(
@@ -58,6 +59,14 @@ describe('buildTodaySectors', () => {
   })
 })
 
+describe('hasPlayableSectors', () => {
+  it('只有至少一个板块包含分时数据时才允许启动单次播放', () => {
+    expect(hasPlayableSectors([])).toBe(false)
+    expect(hasPlayableSectors([{ ...sector('EMPTY', []), minuteFlow: [] }])).toBe(false)
+    expect(hasPlayableSectors([sector('AI', [1])])).toBe(true)
+  })
+})
+
 describe('getRotationFrame', () => {
   it('按当前时刻累计净流入排名并保留强流出板块', () => {
     const sectors = [
@@ -86,21 +95,21 @@ describe('getRotationFrame', () => {
     )
   })
 
-  it('固定八个板块始终进入可见 16 项', () => {
-    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天']
+  it('固定九个板块始终进入可见 20 项', () => {
+    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '黄金']
     const pinned = pinnedNames.map((name, index) => ({ ...sector(`P${index}`, [-100 - index]), name }))
     const stronger = Array.from({ length: 20 }, (_, index) => sector(`S${index}`, [1000 - index]))
 
-    const frame = getRotationFrame([...stronger, ...pinned], 0, 16)
+    const frame = getRotationFrame([...stronger, ...pinned], 0, 20)
 
     expect(pinnedNames.every((name) => frame.some((item) => item.sector.name === name))).toBe(true)
     expect(frame.map((item) => item.rank)).toEqual(
-      Array.from({ length: 16 }, (_, index) => index + 1),
+      Array.from({ length: 20 }, (_, index) => index + 1),
     )
   })
 
-  it('按固定八个、资金流入流出及涨跌幅代表组成均衡榜单', () => {
-    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天']
+  it('按固定九个、资金流入流出及涨跌幅代表组成均衡榜单', () => {
+    const pinnedNames = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '黄金']
     const pinned = pinnedNames.map((name, index) => ({
       ...sector(`P${index}`, [index - 3]), name, changePercent: 0,
     }))

@@ -6,14 +6,14 @@ import {
   FLOW_VISIBLE_SECTORS,
   buildTodaySectors,
   getRotationFrame,
+  hasPlayableSectors,
   type FlowRoute,
 } from './rotationModel'
 import './rotation.css'
 
 const PLAYBACK_MS = 8_000
-const END_HOLD_MS = 4_000
 const ROW_HEIGHT = 34
-const BAR_MAX_PERCENT = 78
+const BAR_MAX_PERCENT = 82
 
 interface RotationPageProps {
   mode: FlowRoute
@@ -27,8 +27,9 @@ export function RotationPage({ mode }: RotationPageProps) {
   const [data, setData] = useState<DailyFundFlow | null>(null)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState(0)
-  const [cycle, setCycle] = useState(0)
   const animationRef = useRef<number | null>(null)
+  const hasStartedPlaybackRef = useRef(false)
+  const hiddenAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -66,44 +67,41 @@ export function RotationPage({ mode }: RotationPageProps) {
   }, [data, mode])
 
   const pointCount = getPointCount(sectors)
+  const canPlay = hasPlayableSectors(sectors)
   const pointIndex = Math.min(pointCount - 1, Math.floor(progress * pointCount))
   const frame = useMemo(
     () => getRotationFrame(sectors, pointIndex, FLOW_VISIBLE_SECTORS),
     [pointIndex, sectors],
   )
   useEffect(() => {
-    if (sectors.length === 0) return
-    const startedAt = performance.now()
+    if (!canPlay || hasStartedPlaybackRef.current) return
+    hasStartedPlaybackRef.current = true
+    let startedAt = performance.now()
     let lastRenderedProgress = -1
 
     const tick = (now: number) => {
       if (document.hidden) {
+        hiddenAtRef.current ??= now
         animationRef.current = requestAnimationFrame(tick)
         return
       }
-      const elapsed = now - startedAt
-      if (elapsed < PLAYBACK_MS) {
-        const nextProgress = Math.min(1, elapsed / PLAYBACK_MS)
-        if (nextProgress - lastRenderedProgress >= 0.002) {
-          lastRenderedProgress = nextProgress
-          setProgress(nextProgress)
-        }
-        animationRef.current = requestAnimationFrame(tick)
-        return
+      if (hiddenAtRef.current !== null) {
+        startedAt += now - hiddenAtRef.current
+        hiddenAtRef.current = null
       }
-      setProgress(1)
-      if (elapsed < PLAYBACK_MS + END_HOLD_MS) {
-        animationRef.current = requestAnimationFrame(tick)
-        return
+      const nextProgress = Math.min(1, (now - startedAt) / PLAYBACK_MS)
+      if (nextProgress === 1 || nextProgress - lastRenderedProgress >= 0.002) {
+        lastRenderedProgress = nextProgress
+        setProgress(nextProgress)
       }
-      setCycle((value) => value + 1)
+      if (nextProgress < 1) animationRef.current = requestAnimationFrame(tick)
     }
 
     animationRef.current = requestAnimationFrame(tick)
     return () => {
       if (animationRef.current !== null) cancelAnimationFrame(animationRef.current)
     }
-  }, [cycle, sectors])
+  }, [canPlay])
 
   if (error) return <main className="rotation-message">{error}</main>
   if (!data) return <main className="rotation-message">加载中</main>
@@ -112,14 +110,17 @@ export function RotationPage({ mode }: RotationPageProps) {
     <main className="rotation-page">
       <header className="rotation-header" aria-hidden="true" />
 
-      <section className="rotation-summary" aria-label="资金方向说明">
-        <span className="rotation-legend outflow"><i />资金流出</span>
-        <span className="rotation-zero-label">0 亿</span>
-        <span className="rotation-legend inflow"><i />资金流入</span>
+      <section className="rotation-summary" aria-label="交易时间和资金方向说明">
+        <strong className="rotation-session-time">
+          {mode === 'am' ? '09:30—11:30' : '09:30—15:00'}
+        </strong>
+        <div className="rotation-legends">
+          <span className="rotation-legend inflow"><i />资金流入</span>
+          <span className="rotation-legend outflow"><i />资金流出</span>
+        </div>
       </section>
 
-      <section className="rotation-board" aria-label="板块资金动态排名">
-        <div className="rotation-axis" aria-hidden="true" />
+      <section className="rotation-board" aria-label="板块资金动态榜单">
         {frame.map((item, index) => {
           const width = `${Math.min(BAR_MAX_PERCENT, Math.abs(item.value) / item.scaleMax * BAR_MAX_PERCENT)}%`
           const positive = item.value >= 0
@@ -133,21 +134,9 @@ export function RotationPage({ mode }: RotationPageProps) {
                 <span className="rotation-sector-name">{item.sector.name}</span>
               </div>
               <div className="rotation-bar-area">
-                <div className="rotation-half negative-half">
-                  {!positive && (
-                    <div className="rotation-bar-track" style={{ width }}>
-                      <strong className="rotation-amount">{formatAmount(item.value)}</strong>
-                      <span className="rotation-bar" />
-                    </div>
-                  )}
-                </div>
-                <div className="rotation-half positive-half">
-                  {positive && (
-                    <div className="rotation-bar-track" style={{ width }}>
-                      <span className="rotation-bar" />
-                      <strong className="rotation-amount">{formatAmount(item.value)}</strong>
-                    </div>
-                  )}
+                <div className="rotation-bar-track" style={{ width }}>
+                  <span className="rotation-bar" />
+                  <strong className="rotation-amount">{formatAmount(item.value)}</strong>
                 </div>
               </div>
             </article>
@@ -156,7 +145,7 @@ export function RotationPage({ mode }: RotationPageProps) {
       </section>
 
       <footer className="rotation-disclaimer">
-        以上内容仅供参考，不构成任何投资建议
+        <p>以上内容仅供参考，不构成任何投资建议</p>
       </footer>
     </main>
   )

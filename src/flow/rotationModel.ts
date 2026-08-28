@@ -44,6 +44,10 @@ export function buildTodaySectors(morning: SectorFlow[], afternoon: SectorFlow[]
   })
 }
 
+export function hasPlayableSectors(sectors: SectorFlow[]): boolean {
+  return sectors.some((sector) => sector.minuteFlow.length > 0)
+}
+
 function valueAt(sector: SectorFlow, pointIndex: number): number {
   if (sector.minuteFlow.length === 0) return sector.netInflow
   return sector.minuteFlow[Math.min(Math.max(pointIndex, 0), sector.minuteFlow.length - 1)]?.value ?? 0

@@ -101,7 +101,7 @@ const BOARD_NAME_NORMALIZERS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /医药/u, name: '医药' },
   { pattern: /白酒/u, name: '白酒' },
   { pattern: /猪肉|生猪/u, name: '猪肉' },
-  { pattern: /养殖/u, name: '养殖' },
+  { pattern: /养殖/u, name: '养殖' }, 
   { pattern: /白银/u, name: '白银' },
   { pattern: /黄金|贵金属/u, name: '黄金' },
   { pattern: /稀土/u, name: '稀土' },
