@@ -132,14 +132,14 @@ describe('getRotationFrame', () => {
     expect(codes.has('LOSS')).toBe(true)
   })
 
-  it('页面默认展示 20 个板块', () => {
-    const sectors = Array.from({ length: 24 }, (_, index) => sector(String(index + 1), [index - 12]))
+  it('页面默认展示 28 个板块', () => {
+    const sectors = Array.from({ length: 32 }, (_, index) => sector(String(index + 1), [index - 16]))
 
     const frame = getRotationFrame(sectors, 0, FLOW_VISIBLE_SECTORS)
 
-    expect(FLOW_VISIBLE_SECTORS).toBe(20)
-    expect(frame).toHaveLength(20)
-    expect(new Set(frame.map((item) => item.sector.code)).size).toBe(20)
+    expect(FLOW_VISIBLE_SECTORS).toBe(28)
+    expect(frame).toHaveLength(28)
+    expect(new Set(frame.map((item) => item.sector.code)).size).toBe(28)
   })
 
   it('以整轮最大绝对金额生成统一且稳定的左右刻度', () => {

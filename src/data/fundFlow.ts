@@ -43,7 +43,7 @@ const ALLOWED_BOARD_NAMES = new Set([
   '新能源汽车', '风电', '储能', '充电桩', '智能驾驶', '光伏', '商业航天',
   '电力', '电力设备', '电网设备', '煤炭', '化工', '生物医药','数据中心','医药', '医疗',
   '白酒', '猪肉', '养殖', '黄金', '白银', '稀土', '有色金属', '银行',
-  '证券', '保险', '房地产', '军工', '低空经济', '软件开发', '云计算',
+  '证券', '保险', '房地产', '国防军工', '低空经济', '软件开发', '云计算',
   '汽车整车', '食品饮料', '家电', '农业', '石油天然气', '钢铁', '航运港口',
   '旅游酒店',
 ])
@@ -83,7 +83,7 @@ const BOARD_NAME_NORMALIZERS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /光伏/u, name: '光伏' },
   { pattern: /商业航天/u, name: '商业航天' },
   { pattern: /低空经济/u, name: '低空经济' },
-  { pattern: /军工|国防军工/u, name: '军工' },
+  { pattern: /^国防军工$/u, name: '国防军工' },
   { pattern: /电力设备/u, name: '电力设备' },
   { pattern: /电网设备/u, name: '电网设备' },
   { pattern: /电力/u, name: '电力' },
@@ -124,6 +124,7 @@ function cleanBoardName(value: string): string {
 
 function getCanonicalBoardPriority(sourceName: string, canonicalName: string, isIndustry: boolean): number {
   const cleanedSource = sourceName.replace(/[ⅠⅡⅢⅣⅤ]+$/u, '').replace(/概念$/u, '').trim()
+  if (canonicalName === '国防军工') return sourceName === '国防军工' && isIndustry ? 10 : 0
   // 行业名称可能带“开采”“大型”“股份制”等后缀，仍应优先于同类概念板块。
   if (isIndustry) return cleanedSource === canonicalName ? 5 : 4
   if (cleanedSource === canonicalName) return 3
@@ -163,9 +164,12 @@ function normalize(values: number[]): number[] {
  * 资金流绝对金额主导候选池，涨跌幅与振幅补充价格活跃度。
  * 同时保留明显流出板块，让画面能表达资金分化而不是单边排名。
  */
-function selectHotBoards(rows: TencentBoardRow[], selectedCount: number): SectorFlow[] {
+export function selectHotBoards(rows: TencentBoardRow[], selectedCount: number): SectorFlow[] {
   const valid = rows.filter((row) => {
     if (!row.code || !row.name || EXCLUDED_BOARD_NAMES.test(row.name)) return false
+    if (/军工|国防军工/u.test(row.name)) {
+      return row.name === '国防军工' && row.stock_type === 'BK-HY-1'
+    }
     return ALLOWED_BOARD_NAMES.has(cleanBoardName(row.name))
   })
   const flows = normalize(valid.map((row) => Math.abs(numberOf(row.zljlr))))
@@ -426,12 +430,13 @@ async function loadBoardRows(boardType: 'gn' | 'hy' | 'hy2', count: number, sign
 }
 
 async function loadTencentDailyFlow(signal?: AbortSignal, selectedCount = DEFAULT_SELECTED_COUNT): Promise<DailyFundFlow> {
-  const [conceptRows, industryRows] = await Promise.all([
+  const [conceptRows, primaryIndustryRows, secondaryIndustryRows] = await Promise.all([
     loadBoardRows('gn', 798, signal),
+    loadBoardRows('hy', 31, signal),
     loadBoardRows('hy2', 124, signal),
   ])
   const tradingDate = getLatestTradingDate()
-  const sectors = selectHotBoards([...conceptRows, ...industryRows], selectedCount)
+  const sectors = selectHotBoards([...conceptRows, ...primaryIndustryRows, ...secondaryIndustryRows], selectedCount)
   if (!sectors.length) throw new Error('腾讯行业板块数据为空')
   const minuteEntries = await Promise.all(sectors.map(async (sector) => [
     sector.code,

@@ -9,6 +9,7 @@ const PORT = Number(process.env.FUND_FLOW_COLLECTOR_PORT || 8787)
 const TENCENT_BASE = 'https://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank'
 const BOARD_SOURCES = [
   { boardType: 'gn', count: 798 },
+  { boardType: 'hy', count: 31 },
   { boardType: 'hy2', count: 124 },
 ]
 
@@ -88,7 +89,10 @@ async function fetchTencentBoards() {
     netInflow: Number(row.zljlr || 0) * 10_000,
     changePercent: Number(row.zdf || 0),
     turnover: Number(row.turnover || 0) * 10_000,
-  })).filter((row) => row.code && row.name)
+  })).filter((row) => row.code && row.name && (
+    !/军工|国防军工/u.test(row.name)
+    || (row.name === '国防军工' && row.boardType === 'BK-HY-1')
+  ))
 }
 
 let collecting = false
