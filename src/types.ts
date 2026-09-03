@@ -5,9 +5,14 @@ export interface MinuteFlowPoint {
   value: number
 }
 
+export type BoardSourceType = 'industry' | 'concept'
+
 export interface SectorFlow {
   code: string
   name: string
+  sourceType: BoardSourceType
+  inflow: number
+  outflow: number
   netInflow: number
   mainInflow?: number
   mainOutflow?: number
@@ -29,11 +34,21 @@ export interface SessionFlow {
   sectors: SectorFlow[]
 }
 
+export interface MarketFlowSnapshot {
+  time: string
+  inflow: number
+  outflow: number
+  net: number
+  largeBuy: number
+  largeSell: number
+}
+
 export interface DailyFundFlow {
   tradingDate: string
-  source: 'mock' | 'tencent'
+  source: 'mock' | 'tonghuashun'
   sourceLabel: string
-  sessionMethod: 'official-snapshot' | 'turnover-estimate' | 'mock'
+  sessionMethod: 'official-snapshot' | 'mock'
+  marketFlow: MarketFlowSnapshot[]
   morning: SessionFlow
   afternoon: SessionFlow
 }

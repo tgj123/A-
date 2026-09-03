@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EnergyScene } from './components/EnergyScene'
-import { loadDailyFlow } from './data/fundFlow'
+import { alignSectorsToTimeline, buildSessionTimeline, loadDailyFlow } from './data/fundFlow'
 import type { DailyFundFlow, SectorFlow, SessionKey } from './types'
 
 export type ViewMode = 'am' | 'pm' | 'all'
@@ -74,9 +74,14 @@ export function App() {
 
   const sectors = useMemo(() => {
     if (!data) return []
-    if (mode === 'am') return data.morning.sectors
-    if (mode === 'pm') return data.afternoon.sectors
-    return combineAll(data)
+    const source = mode === 'am'
+      ? data.morning.sectors
+      : mode === 'pm'
+        ? data.afternoon.sectors
+        : combineAll(data)
+    return alignSectorsToTimeline(source, buildSessionTimeline(
+      mode === 'am' ? 'morning' : mode === 'pm' ? 'afternoon' : 'summary',
+    ))
   }, [data, mode])
 
   const session: SessionKey = mode === 'am' ? 'morning' : mode === 'pm' ? 'afternoon' : 'summary'
@@ -93,6 +98,11 @@ export function App() {
 
   if (error) return <main className="chart-message">{error}</main>
   if (!data) return <main className="chart-message">加载中</main>
+  if (!sectors.length) {
+    return <main className="chart-message">
+      当前时段尚无同花顺分钟快照，采集器会在交易时段每分钟补充数据
+    </main>
+  }
 
   return (
     <main className="chart-page">

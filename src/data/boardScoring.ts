@@ -4,18 +4,27 @@ export const PINNED_BOARD_NAMES = [
 
 export interface BoardCandidate {
   name: string
+  selectionKey?: string
   heatScore: number
 }
 
+function candidateKey(board: BoardCandidate): string {
+  return board.selectionKey ?? board.name
+}
+
+function isPinned(board: BoardCandidate): boolean {
+  return PINNED_BOARD_NAMES.includes(candidateKey(board) as typeof PINNED_BOARD_NAMES[number])
+}
+
 export function selectPinnedBoards<T extends BoardCandidate>(boards: T[], limit: number): T[] {
-  const byName = new Map(boards.map((board) => [board.name, board]))
+  const byName = new Map(boards.map((board) => [candidateKey(board), board]))
   const pinned = PINNED_BOARD_NAMES.flatMap((name) => {
     const board = byName.get(name)
     return board ? [board] : []
   })
-  const pinnedNames = new Set(pinned.map((board) => board.name))
+  const pinnedNames = new Set(pinned.map(candidateKey))
   const remaining = boards
-    .filter((board) => !pinnedNames.has(board.name))
+    .filter((board) => !pinnedNames.has(candidateKey(board)))
     .sort((left, right) => right.heatScore - left.heatScore)
 
   return [...pinned, ...remaining].slice(0, limit)
@@ -27,8 +36,7 @@ export interface PublicBoardCandidate extends BoardCandidate {
 }
 
 export function selectPublicBoards<T extends PublicBoardCandidate>(boards: T[], limit: number): T[] {
-  const pinnedNames = new Set<string>(PINNED_BOARD_NAMES)
-  const pinned = boards.filter((board) => pinnedNames.has(board.name))
+  const pinned = boards.filter(isPinned)
   const inflows = [...boards].filter((board) => board.netInflow >= 0)
     .sort((left, right) => right.netInflow - left.netInflow).slice(0, 4)
   const outflows = [...boards].filter((board) => board.netInflow < 0)
@@ -38,11 +46,11 @@ export function selectPublicBoards<T extends PublicBoardCandidate>(boards: T[], 
   const losses = [...boards].filter((board) => board.changePercent < 0)
     .sort((left, right) => left.changePercent - right.changePercent).slice(0, 4)
   const prioritized = [...pinned, ...inflows, ...outflows, ...gains, ...losses]
-  const prioritizedNames = new Set(prioritized.map((board) => board.name))
-  const remaining = boards.filter((board) => !prioritizedNames.has(board.name))
+  const prioritizedNames = new Set(prioritized.map(candidateKey))
+  const remaining = boards.filter((board) => !prioritizedNames.has(candidateKey(board)))
     .sort((left, right) => right.heatScore - left.heatScore)
 
-  return [...new Map([...prioritized, ...remaining].map((board) => [board.name, board])).values()]
+  return [...new Map([...prioritized, ...remaining].map((board) => [candidateKey(board), board])).values()]
     .slice(0, limit)
 }
 

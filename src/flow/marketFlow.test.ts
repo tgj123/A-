@@ -1,33 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { mergeMarketFlowSeries, parseMarketFlowRows } from './marketFlow'
+import { getMarketFlowAtOrBefore, type MarketFlowPoint } from './marketFlow'
 
-describe('parseMarketFlowRows', () => {
-  it('解析分钟资金字段并保留时间顺序', () => {
-    expect(parseMarketFlowRows([
-      '09:31,-100,10,20,-30,40',
-      '09:32,-80,12,18,-20,30',
-    ])).toEqual([
-      { time: '09:31', main: -100, small: 10, medium: 20, large: -30, superLarge: 40 },
-      { time: '09:32', main: -80, small: 12, medium: 18, large: -20, superLarge: 30 },
-    ])
+const series: MarketFlowPoint[] = [
+  { time: '09:30', inflow: 10, outflow: 8, net: 2, largeBuy: 4, largeSell: 3 },
+  { time: '09:32', inflow: 20, outflow: 12, net: 8, largeBuy: 7, largeSell: 5 },
+  { time: '13:30', inflow: 30, outflow: 18, net: 12, largeBuy: 10, largeSell: 6 },
+]
+
+describe('getMarketFlowAtOrBefore', () => {
+  it('按实际播放时间取不晚于目标分钟的最近快照', () => {
+    expect(getMarketFlowAtOrBefore(series, '09:31')?.time).toBe('09:30')
+    expect(getMarketFlowAtOrBefore(series, '09:32')?.net).toBe(8)
   })
 
-  it('忽略字段不完整或包含非数字的行', () => {
-    expect(parseMarketFlowRows([
-      '09:31,-100,10,20,-30',
-      '09:32,-80,12,18,-20,30',
-      '09:33,bad,1,2,3,4',
-    ])).toHaveLength(1)
+  it('午休缺口沿用上午最后一份有效快照', () => {
+    expect(getMarketFlowAtOrBefore(series, '12:00')?.time).toBe('09:32')
   })
-})
 
-describe('mergeMarketFlowSeries', () => {
-  it('按分钟合并沪深市场资金数据', () => {
-    expect(mergeMarketFlowSeries([
-      [{ time: '09:31', main: 1, small: 2, medium: 3, large: 4, superLarge: 5 }],
-      [{ time: '09:31', main: 10, small: 20, medium: 30, large: 40, superLarge: 50 }],
-    ])).toEqual([
-      { time: '09:31', main: 11, small: 22, medium: 33, large: 44, superLarge: 55 },
-    ])
+  it('目标早于第一份快照时返回空', () => {
+    expect(getMarketFlowAtOrBefore(series, '09:29')).toBeNull()
   })
 })

@@ -2,15 +2,33 @@ import { createServer } from 'node:http'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { TonghuashunClient } from './tonghuashunClient.mjs'
+import { parseTonghuashunBoardTable, parseTonghuashunLargeOrderTable, parseTonghuashunStockTable } from './tonghuashunParser.mjs'
+import {
+  SNAPSHOT_SCHEMA_VERSION,
+  SNAPSHOT_SOURCE,
+  createTonghuashunSnapshot,
+  isCompatibleDay,
+} from './fundFlowSnapshot.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const DATA_DIR = join(ROOT, '.data', 'fund-flow')
 const PORT = Number(process.env.FUND_FLOW_COLLECTOR_PORT || 8787)
-const TENCENT_BASE = 'https://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank'
-const BOARD_SOURCES = [
-  { boardType: 'gn', count: 798 },
-  { boardType: 'hy2', count: 124 },
-]
+const client = new TonghuashunClient()
+
+const BOARD_URLS = {
+  industry: (page) => `https://data.10jqka.com.cn/funds/hyzjl/field/tradezdf/order/desc/page/${page}/ajax/1/free/1/`,
+  concept: (page) => `https://data.10jqka.com.cn/funds/gnzjl/field/tradezdf/order/desc/page/${page}/ajax/1/free/1/`,
+}
+const STOCK_URL = (page) => `https://data.10jqka.com.cn/funds/ggzjl/field/zjjlr/order/desc/page/${page}/ajax/1/free/1/`
+const LARGE_ORDER_URL = (page) => `https://data.10jqka.com.cn/funds/ddzz/field/stockcode/order/desc/page/${page}/ajax/1/free/1/`
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u
+
+function isValidDate(value) {
+  if (!DATE_PATTERN.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
 
 function shanghaiParts(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -25,74 +43,79 @@ function marketMoment(now = new Date()) {
   const date = `${parts.year}-${parts.month}-${parts.day}`
   const time = `${parts.hour}:${parts.minute}`
   const minute = Number(parts.hour) * 60 + Number(parts.minute)
-  const weekday = parts.weekday
-  const tradingDay = weekday !== 'Sat' && weekday !== 'Sun'
+  const tradingDay = parts.weekday !== 'Sat' && parts.weekday !== 'Sun'
   const morning = minute >= 570 && minute <= 690
   const afternoon = minute >= 810 && minute <= 900
   return { date, time, minute, tradingDay, active: tradingDay && (morning || afternoon) }
 }
 
-async function readDay(date) {
+function emptyDay(date) {
+  return { schemaVersion: SNAPSHOT_SCHEMA_VERSION, source: SNAPSHOT_SOURCE, date, snapshots: [] }
+}
+
+async function readStoredDay(date) {
   try {
     return JSON.parse(await readFile(join(DATA_DIR, `${date}.json`), 'utf8'))
   } catch (error) {
-    if (error?.code === 'ENOENT') return { date, snapshots: [] }
+    if (error?.code === 'ENOENT') return null
     throw error
   }
 }
 
-async function saveSnapshot(date, snapshot) {
-  const day = await readDay(date)
-  const withoutSameMinute = day.snapshots.filter((item) => item.time !== snapshot.time)
-  withoutSameMinute.push(snapshot)
-  withoutSameMinute.sort((a, b) => a.time.localeCompare(b.time))
-  await mkdir(DATA_DIR, { recursive: true })
-  await writeFile(join(DATA_DIR, `${date}.json`), JSON.stringify({ date, snapshots: withoutSameMinute }, null, 2))
-  return withoutSameMinute.length
+async function readDay(date) {
+  const day = await readStoredDay(date)
+  if (!day) return emptyDay(date)
+  if (!isCompatibleDay(day)) {
+    return { ...emptyDay(date), incompatibleSource: day.source || 'tencent' }
+  }
+  return day
 }
 
-async function fetchBoardSource({ boardType, count }) {
-  const pageSize = Math.min(100, count)
-  const rows = []
-  for (let offset = 0; offset < count; offset += pageSize) {
-    const url = new URL(TENCENT_BASE)
-    url.searchParams.set('board_type', boardType)
-    url.searchParams.set('sort_type', 'price')
-    url.searchParams.set('direct', 'down')
-    url.searchParams.set('offset', String(offset))
-    url.searchParams.set('count', String(Math.min(pageSize, count - offset)))
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        Referer: 'https://stockapp.finance.qq.com/',
-        'User-Agent': 'Mozilla/5.0 FundFlowCollector/1.0',
-      },
-    })
-    if (!response.ok) throw new Error(`Tencent ${boardType} HTTP ${response.status}`)
-    const payload = await response.json()
-    if (payload.code !== 0 || !Array.isArray(payload.data?.rank_list)) {
-      throw new Error(`Tencent ${boardType} response error: ${payload.msg || 'empty rank_list'}`)
-    }
-    rows.push(...payload.data.rank_list)
-    if (payload.data.rank_list.length < Math.min(pageSize, count - offset)) break
-  }
+async function saveSnapshot(date, snapshot) {
+  const stored = await readStoredDay(date)
+  const day = isCompatibleDay(stored) ? stored : emptyDay(date)
+  const snapshots = day.snapshots.filter((item) => item.time !== snapshot.time)
+  snapshots.push(snapshot)
+  snapshots.sort((left, right) => left.time.localeCompare(right.time))
+  const nextDay = { ...emptyDay(date), snapshots }
+  await mkdir(DATA_DIR, { recursive: true })
+  await writeFile(join(DATA_DIR, `${date}.json`), JSON.stringify(nextDay, null, 2))
+  return snapshots.length
+}
+
+async function fetchBoardRows(sourceType) {
+  const pages = await client.fetchPages(BOARD_URLS[sourceType], ['流入资金', '流出资金', '净额'])
+  const rows = pages.flatMap((html) => parseTonghuashunBoardTable(html, sourceType))
+  if (!rows.length) throw new Error(`同花顺${sourceType === 'industry' ? '行业' : '概念'}资金数据为空`)
   return rows
 }
 
-async function fetchTencentBoards() {
-  const sources = await Promise.all(BOARD_SOURCES.map(fetchBoardSource))
-  return sources.flat().map((row) => ({
-    code: String(row.code || ''),
-    name: String(row.name || '').replace(/[ⅠⅡⅢⅣⅤ]+$/u, '').replace(/概念$/u, ''),
-    boardType: String(row.stock_type || ''),
-    netInflow: Number(row.zljlr || 0) * 10_000,
-    changePercent: Number(row.zdf || 0),
-    turnover: Number(row.turnover || 0) * 10_000,
-  })).filter((row) => row.code && row.name)
+async function fetchStockRows() {
+  const pages = await client.fetchPages(STOCK_URL, ['股票代码', '流入资金', '流出资金', '净额'])
+  const rows = pages.flatMap(parseTonghuashunStockTable)
+  if (!rows.length) throw new Error('同花顺个股资金数据为空')
+  return rows
+}
+
+async function fetchLargeOrders() {
+  const pages = await client.fetchPages(LARGE_ORDER_URL, ['成交时间', '股票代码', '成交额', '大单性质'])
+  const rows = pages.flatMap(parseTonghuashunLargeOrderTable)
+  if (!rows.length) throw new Error('同花顺大单追踪数据为空')
+  return rows
+}
+
+async function fetchTonghuashunSnapshot(date, time) {
+  // 同一会话页面内串行请求，避免失败分支遗留请求污染下一轮采集。
+  const industryBoards = await fetchBoardRows('industry')
+  const conceptBoards = await fetchBoardRows('concept')
+  const stocks = await fetchStockRows()
+  const largeOrders = await fetchLargeOrders()
+  return createTonghuashunSnapshot(date, time, [...industryBoards, ...conceptBoards], stocks, largeOrders)
 }
 
 let collecting = false
 let lastResult = null
+let lastSuccessfulResult = null
 async function collect({ closingSnapshot = false } = {}) {
   if (collecting) return lastResult
   collecting = true
@@ -100,18 +123,31 @@ async function collect({ closingSnapshot = false } = {}) {
     const moment = marketMoment()
     if (!moment.tradingDay) return { skipped: true, reason: 'non-trading-day' }
     const time = closingSnapshot ? '15:00' : moment.time
-    const boards = await fetchTencentBoards()
-    const count = await saveSnapshot(moment.date, {
+    const snapshot = await fetchTonghuashunSnapshot(moment.date, time)
+    const count = await saveSnapshot(moment.date, snapshot)
+    lastResult = {
+      ok: true,
+      source: SNAPSHOT_SOURCE,
+      date: moment.date,
       time,
-      capturedAt: new Date().toISOString(),
-      boards,
-    })
-    lastResult = { ok: true, date: moment.date, time, boards: boards.length, snapshots: count }
-    console.log(`[collector] ${moment.date} ${time} · ${boards.length} boards · ${count} snapshots`)
+      capturedAt: snapshot.capturedAt,
+      boards: snapshot.boards.length,
+      snapshots: count,
+      stale: false,
+    }
+    lastSuccessfulResult = lastResult
+    console.log(`[collector] ${moment.date} ${time} · ${snapshot.boards.length} 同花顺板块 · ${count} snapshots`)
     return lastResult
   } catch (error) {
-    lastResult = { ok: false, error: error instanceof Error ? error.message : String(error) }
-    console.error('[collector]', lastResult.error)
+    const message = error instanceof Error ? error.message : String(error)
+    lastResult = {
+      ok: false,
+      source: SNAPSHOT_SOURCE,
+      error: message,
+      stale: true,
+      lastSuccessAt: lastSuccessfulResult?.capturedAt ?? null,
+    }
+    console.error('[collector]', message)
     return lastResult
   } finally {
     collecting = false
@@ -132,10 +168,11 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url || '/', `http://${request.headers.host}`)
     if (request.method === 'GET' && url.pathname === '/api/fund-flow/snapshots') {
       const date = url.searchParams.get('date') || marketMoment().date
+      if (!isValidDate(date)) return json(response, 400, { error: 'date 必须是有效的 YYYY-MM-DD' })
       return json(response, 200, await readDay(date))
     }
     if (request.method === 'GET' && url.pathname === '/api/fund-flow/status') {
-      return json(response, 200, { market: marketMoment(), lastResult })
+      return json(response, 200, { source: SNAPSHOT_SOURCE, market: marketMoment(), lastResult })
     }
     if (request.method === 'POST' && url.pathname === '/api/fund-flow/collect') {
       return json(response, 200, await collect())
@@ -147,17 +184,23 @@ const server = createServer(async (request, response) => {
 })
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[collector] API http://127.0.0.1:${PORT}`)
+  console.log(`[collector] 同花顺 API http://127.0.0.1:${PORT}`)
 })
 
 const current = marketMoment()
 if (current.active) {
   void collect()
 } else if (current.tradingDay && current.minute > 900) {
-  // 收盘后启动时至少保存真实收盘累计值，不伪造早前分钟。
   void collect({ closingSnapshot: true })
 }
 
 setInterval(() => {
   if (marketMoment().active) void collect()
 }, 60_000)
+
+async function shutdown() {
+  await client.close()
+  server.close()
+}
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
