@@ -9,7 +9,7 @@ import {
   hasPlayableSectors,
   type FlowRoute,
 } from './rotationModel'
-import { getMarketFlowAtOrBefore } from './marketFlow'
+import { buildMarketFlowCards, getMarketFlowAtOrBefore } from './marketFlow'
 import './rotation.css'
 
 const PLAYBACK_MS = 8_000
@@ -78,15 +78,7 @@ export function RotationPage({ mode }: RotationPageProps) {
     ?? marketFlowSeries.at(-1)?.time
     ?? '09:30'
   const activeMarketFlow = getMarketFlowAtOrBefore(marketFlowSeries, activeTime)
-  const flowCards = activeMarketFlow
-    ? [
-      { label: '市场流入', value: activeMarketFlow.inflow },
-      { label: '市场流出', value: -activeMarketFlow.outflow },
-      { label: '市场净额', value: activeMarketFlow.net },
-      { label: '大单买入', value: activeMarketFlow.largeBuy },
-      { label: '大单卖出', value: -activeMarketFlow.largeSell },
-    ]
-    : []
+  const flowCards = activeMarketFlow ? buildMarketFlowCards(activeMarketFlow) : []
   const frame = useMemo(
     () => getRotationFrame(sectors, pointIndex, FLOW_VISIBLE_SECTORS),
     [pointIndex, sectors],
@@ -147,7 +139,9 @@ export function RotationPage({ mode }: RotationPageProps) {
         {flowCards.length > 0 ? flowCards.map((card) => (
           <article className={`rotation-flow-card ${card.value >= 0 ? 'positive' : 'negative'}`} key={card.label}>
             <strong>{card.label}</strong>
-            <span className="rotation-flow-card-line" />
+            <span className="rotation-flow-card-progress" aria-hidden="true">
+              <i style={{ width: `${card.progress * 100}%` }} />
+            </span>
             <b>{formatAmount(card.value)}</b>
           </article>
         )) : <p className="rotation-flow-card-loading">资金分类加载中</p>}
