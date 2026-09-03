@@ -9,6 +9,8 @@ export interface SectorFlow {
   code: string
   name: string
   netInflow: number
+  mainInflow?: number
+  mainOutflow?: number
   changePercent: number
   leadingStock: string
   rank: number

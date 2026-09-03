@@ -100,7 +100,7 @@ export function App() {
         <div className="playback-control" aria-label="行情回放进度">
           <div className="playback-meta">
             <span className="playback-label">
-              资金流入流出追踪
+              主力资金流入流出追踪
             </span>
             <strong className="playback-time">{playbackTime || sessionStart}</strong>
           </div>

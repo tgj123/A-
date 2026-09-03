@@ -3,7 +3,7 @@ import { PINNED_BOARD_NAMES } from '../data/boardScoring'
 
 export type FlowRoute = 'am' | 'today'
 
-export const FLOW_VISIBLE_SECTORS = 20
+export const FLOW_VISIBLE_SECTORS = 28
 
 export interface RotationFrameItem {
   sector: SectorFlow

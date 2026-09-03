@@ -10,6 +10,11 @@ export default defineConfig({
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/fund-flow-api/, ''),
             },
+            '/market-flow-api': {
+                target: 'https://push2.eastmoney.com',
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/market-flow-api/, ''),
+            },
             '/tencent-api': {
                 target: 'https://proxy.finance.qq.com',
                 changeOrigin: true,

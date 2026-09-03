@@ -34,7 +34,7 @@ const BOARD_ENDPOINT = import.meta.env.VITE_TENCENT_FUND_FLOW_ENDPOINT
   || '/tencent-api/cgi/cgi-bin/rank/pt/getRank'
 const MINUTE_ENDPOINT = import.meta.env.VITE_TENCENT_MINUTE_ENDPOINT
   || '/tencent-api/ifzqgtimg/appstock/app/minute/query'
-const SELECTED_COUNT = 24
+const DEFAULT_SELECTED_COUNT = 24
 const EXCLUDED_BOARD_NAMES = /昨日|涨停|连板|首板|新股|次新股|高送转|融资融券|转融券|深股通|沪股通|富时罗素|标普道琼斯|MSCI|同花顺|预亏|预增|基金重仓|社保重仓|证金持股|高价股|低价股|大盘股|小盘股|中盘股|央企央资|地方国资|政府控股|国企改革|周期股|机构重仓|参股|持股|增持|减持|破净股|破发股|AH股|AB股|含可转债|送转填权|行业龙头|一带一路|TMT|转融券标的|装修|装饰|电子签名|非白酒|其他|地面兵装|航天装备/
 const ALLOWED_BOARD_NAMES = new Set([
   '创新药', '人形机器人', '半导体材料', '半导体', '先进封装', '存储芯片', 'CPO', 'PCB',
@@ -163,7 +163,7 @@ function normalize(values: number[]): number[] {
  * 资金流绝对金额主导候选池，涨跌幅与振幅补充价格活跃度。
  * 同时保留明显流出板块，让画面能表达资金分化而不是单边排名。
  */
-function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
+function selectHotBoards(rows: TencentBoardRow[], selectedCount: number): SectorFlow[] {
   const valid = rows.filter((row) => {
     if (!row.code || !row.name || EXCLUDED_BOARD_NAMES.test(row.name)) return false
     return ALLOWED_BOARD_NAMES.has(cleanBoardName(row.name))
@@ -178,6 +178,8 @@ function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
       code: row.code!,
       name,
       netInflow: numberOf(row.zljlr) * 10_000,
+      mainInflow: numberOf(row.zllr) * 10_000,
+      mainOutflow: numberOf(row.zllc) * 10_000,
       changePercent: numberOf(row.zdf),
       leadingStock: row.lzg?.name ?? '',
       rank: 0,
@@ -199,7 +201,7 @@ function selectHotBoards(rows: TencentBoardRow[]): SectorFlow[] {
     .sort((a, b) => b.canonicalPriority - a.canonicalPriority || b.heatScore - a.heatScore)
     .filter((item, index, items) => items.findIndex((candidate) => candidate.name === item.name) === index)
     .sort((a, b) => b.heatScore - a.heatScore)
-  const selected = selectPublicBoards(representativeBoards, SELECTED_COUNT)
+  const selected = selectPublicBoards(representativeBoards, selectedCount)
   selected.forEach((sector, index) => { sector.rank = index + 1 })
   return selected
 }
@@ -423,13 +425,13 @@ async function loadBoardRows(boardType: 'gn' | 'hy' | 'hy2', count: number, sign
   return rows
 }
 
-async function loadTencentDailyFlow(signal?: AbortSignal): Promise<DailyFundFlow> {
+async function loadTencentDailyFlow(signal?: AbortSignal, selectedCount = DEFAULT_SELECTED_COUNT): Promise<DailyFundFlow> {
   const [conceptRows, industryRows] = await Promise.all([
     loadBoardRows('gn', 798, signal),
     loadBoardRows('hy2', 124, signal),
   ])
   const tradingDate = getLatestTradingDate()
-  const sectors = selectHotBoards([...conceptRows, ...industryRows])
+  const sectors = selectHotBoards([...conceptRows, ...industryRows], selectedCount)
   if (!sectors.length) throw new Error('腾讯行业板块数据为空')
   const minuteEntries = await Promise.all(sectors.map(async (sector) => [
     sector.code,
@@ -449,6 +451,6 @@ async function loadTencentDailyFlow(signal?: AbortSignal): Promise<DailyFundFlow
   }
 }
 
-export async function loadDailyFlow(signal?: AbortSignal): Promise<DailyFundFlow> {
-  return loadTencentDailyFlow(signal)
+export async function loadDailyFlow(signal?: AbortSignal, selectedCount = DEFAULT_SELECTED_COUNT): Promise<DailyFundFlow> {
+  return loadTencentDailyFlow(signal, selectedCount)
 }
