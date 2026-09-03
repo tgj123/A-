@@ -51,12 +51,14 @@
   box-shadow: 0 2px 8px rgba(53, 74, 64, .06);
   text-align: center;
 }
-.rotation-flow-card.negative { border-color: #eadfdf; background: linear-gradient(180deg, #fffdfd, #fcf5f5); }
+.rotation-flow-card.positive { border-color: #eadfdf; background: linear-gradient(180deg, #fffdfd, #fcf5f5); }
 .rotation-flow-card strong { display: block; color: #333a40; font-size: 12px; font-weight: 750; }
-.rotation-flow-card-line { display: block; width: 32px; height: 4px; margin: 6px auto 5px; border-radius: 99px; background: var(--rotation-green); }
-.rotation-flow-card.negative .rotation-flow-card-line { background: var(--rotation-red); }
-.rotation-flow-card b { display: block; overflow: hidden; color: #3f9270; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
-.rotation-flow-card.negative b { color: #bd4e4a; }
+.rotation-flow-card-line { display: block; width: 32px; height: 4px; margin: 6px auto 5px; border-radius: 99px; }
+.rotation-flow-card.positive .rotation-flow-card-line { background: var(--rotation-red); }
+.rotation-flow-card.negative .rotation-flow-card-line { background: var(--rotation-green); }
+.rotation-flow-card b { display: block; overflow: hidden; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.rotation-flow-card.positive b { color: #bd4e4a; }
+.rotation-flow-card.negative b { color: #3f9270; }
 .rotation-flow-card-loading { grid-column: 1 / -1; margin: 8px 0; color: var(--rotation-muted); font-size: 11px; text-align: center; }
 
 .rotation-board {
