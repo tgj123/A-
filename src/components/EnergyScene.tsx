@@ -35,7 +35,7 @@ const GREEN = new THREE.Color('#57a985')
 const WORLD_LEFT = -5
 const WORLD_RIGHT = 5
 const WORLD_TOP = 8.25
-const WORLD_BOTTOM = -6.75
+const WORLD_BOTTOM = -8.1
 const PLAYBACK_SECONDS = 8
 const FRAME_UPDATE_INTERVAL_MS = 1000 / 30
 const RANKING_STEP_MINUTES = 10
@@ -48,7 +48,7 @@ function createLabel(sector: SectorFlow): HTMLButtonElement {
   return label
 }
 
-function makeTicks(session: SessionKey): Array<{ text: string; position: number }> {
+export function makeTicks(session: SessionKey): Array<{ text: string; position: number }> {
   if (session === 'morning') return [
     { text: '09:30', position: 0 }, { text: '10:00', position: 0.25 }, { text: '10:30', position: 0.5 },
     { text: '11:00', position: 0.75 }, { text: '11:30', position: 1 },
@@ -57,11 +57,10 @@ function makeTicks(session: SessionKey): Array<{ text: string; position: number 
     { text: '13:30', position: 0 }, { text: '14:00', position: 1 / 3 },
     { text: '14:30', position: 2 / 3 }, { text: '15:00', position: 1 },
   ]
-  // 全天压缩午休区间，但保留 11:30 / 13:30 两个相邻断点。
+  // 全天压缩午休区间，仅保留三个关键时点，确保窄屏下文字不重叠。
   return [
-    { text: '09:30', position: 0 }, { text: '10:30', position: 60 / 211 },
-    { text: '11:30', position: 120 / 211 }, { text: '13:30', position: 121 / 211 },
-    { text: '14:30', position: 181 / 211 }, { text: '15:00', position: 1 },
+    { text: '09:30', position: 0 }, { text: '13:30', position: 121 / 211 },
+    { text: '15:00', position: 1 },
   ]
 }
 
@@ -115,14 +114,14 @@ export function EnergyScene({
     const axisMax = positiveMaxYi * 100_000_000
     const axisMin = -negativeMaxYi * 100_000_000
     const plotTop = 5.5
-    const plotBottom = -5.9
+    const plotBottom = -7.25
     const chartLeft = -3.25
     // 折线终点提前收在左侧，为动态点到固定标签的细连接线留出明显距离。
     const chartRight = -0.15
     const gridLeft = -3.55
     const gridRight = 4.7
     const yAxisX = -3.62
-    const xAxisY = -6.1
+    const xAxisY = -7.45
 
     // 正负资金共用同一金额比例，0 亿的位置由真实上下限决定。
     const toY = (value: number) => plotBottom
@@ -360,7 +359,7 @@ export function EnergyScene({
       updateContent: boolean,
       updatePosition: boolean,
     ) => {
-      const targetX = host.clientWidth * 0.58
+      const targetX = host.clientWidth * 0.61
       const targetY = host.clientHeight * visual.labelTopPercent / 100
       if (updatePosition) {
         visual.label.style.transform = `translate3d(${targetX}px, ${targetY - 12}px, 0)`
