@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { makeTicks } from './EnergyScene'
+import { makeTicks, MAX_VISIBLE_SECTORS } from './EnergyScene'
 
 describe('makeTicks', () => {
   it('ALL 模式只显示三个间距清晰的关键时间刻度', () => {
@@ -12,5 +12,9 @@ describe('makeTicks', () => {
 
   it('AM 模式保留五个时间刻度', () => {
     expect(makeTicks('morning')).toHaveLength(5)
+  })
+
+  it('AM 和 ALL 都允许显示超过 24 个板块', () => {
+    expect(MAX_VISIBLE_SECTORS).toBe(28)
   })
 })

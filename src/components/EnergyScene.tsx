@@ -39,6 +39,7 @@ const WORLD_BOTTOM = -8.1
 const PLAYBACK_SECONDS = 8
 const FRAME_UPDATE_INTERVAL_MS = 1000 / 30
 const RANKING_STEP_MINUTES = 10
+export const MAX_VISIBLE_SECTORS = 28
 
 function createLabel(sector: SectorFlow): HTMLButtonElement {
   const label = document.createElement('button')
@@ -102,7 +103,10 @@ export function EnergyScene({
     axisLayer.className = 'flow-axis-layer'
     host.appendChild(axisLayer)
 
-    const ranked = [...sectors].filter((item) => item.minuteFlow.length > 1).sort((a, b) => b.netInflow - a.netInflow).slice(0, 24)
+    const ranked = [...sectors]
+      .filter((item) => item.minuteFlow.length > 1)
+      .sort((a, b) => b.netInflow - a.netInflow)
+      .slice(0, MAX_VISIBLE_SECTORS)
     const positive = ranked.filter((item) => item.netInflow >= 0)
     const negative = ranked.filter((item) => item.netInflow < 0)
     const maxAbsoluteNetInflow = Math.max(...ranked.map((sector) => Math.abs(sector.netInflow)), 1)
@@ -116,8 +120,8 @@ export function EnergyScene({
     const plotTop = 5.5
     const plotBottom = -7.25
     const chartLeft = -3.25
-    // 折线终点提前收在左侧，为动态点到固定标签的细连接线留出明显距离。
-    const chartRight = -0.15
+    // 折线终点提前收在左侧，为动态点到固定标签的细连接线留出距离，但不要拉得太开。
+    const chartRight = 0.12
     const gridLeft = -3.55
     const gridRight = 4.7
     const yAxisX = -3.62
@@ -324,9 +328,11 @@ export function EnergyScene({
         .filter((visual) => visual.currentValue < 0)
         .sort((a, b) => b.currentValue - a.currentValue)
       const ordered = [...inflows, ...outflows]
-      const top = 5
-      const bottom = 96
-      const groupGap = inflows.length > 0 && outflows.length > 0 ? 0.5 : 0
+      // 标签整体上移，并给最后一个块保留底部安全距离。
+      const top = 3
+      const bottom = 95
+      // 标签高度为 25px；在当前图表高度下，28 个块相邻时仅保留约 1px 的间距。
+      const groupGap = 0
       const step = ordered.length > 1
         ? (bottom - top - groupGap) / (ordered.length - 1)
         : 0
@@ -381,13 +387,13 @@ export function EnergyScene({
     }
 
     const animate = (now: number) => {
-      if (completed) return
+      if (completed) return 
       frame = requestAnimationFrame(animate)
       const delta = Math.min((now - lastTime) / 1000, 0.05)
       lastTime = now
       if (playingRef.current) elapsed = Math.min(PLAYBACK_SECONDS, elapsed + delta)
       const progress = elapsed / PLAYBACK_SECONDS
-      // 24 条宽线和连接线的几何更新较重，稳定在 30 FPS 比满帧抢占主线程更顺滑。
+      // 多条宽线和连接线的几何更新较重，稳定在 30 FPS 比满帧抢占主线程更顺滑。
       if (now - lastRenderedAt < FRAME_UPDATE_INTERVAL_MS && progress < 1) return
       lastRenderedAt = now
       progressCallbackRef.current(progress)

@@ -49,7 +49,7 @@ button { font: inherit; }
 .energy-scene { position: absolute; inset: 0; overflow: hidden; background: #fff; }
 .energy-scene canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .flow-label-layer, .flow-axis-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.flow-label { position: absolute; left: 0; top: 0; width: max-content; max-width: 42%; height: 25px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 7px; border: 1.5px solid currentColor; border-radius: 7px; background: rgba(255,255,255,.98); box-shadow: 0 1px 4px rgba(31, 39, 47, .08); font-size: 10px; line-height: 1; white-space: nowrap; pointer-events: none; transition: transform .07s linear, color .1s ease, border-color .1s ease; will-change: transform; }
+.flow-label { position: absolute; left: 0; top: 0; width: max-content; max-width: 42%; height: 25px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 7px; border: 1.5px solid currentColor; border-radius: 7px; background: rgba(255,255,255,.98); box-shadow: 0 1px 4px rgba(31, 39, 47, .08); font-size: 10px; line-height: 1; white-space: nowrap; pointer-events: none; transition: transform .07s linear, color .1s ease, border-color .1s ease; will-change: transform; margin: 0; }
 .flow-label.inflow { color: var(--red); }
 .flow-label.outflow { color: var(--green); }
 .flow-label strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 650; }

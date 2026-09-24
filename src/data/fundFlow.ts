@@ -34,25 +34,26 @@ const BOARD_ENDPOINT = import.meta.env.VITE_TENCENT_FUND_FLOW_ENDPOINT
   || '/tencent-api/cgi/cgi-bin/rank/pt/getRank'
 const MINUTE_ENDPOINT = import.meta.env.VITE_TENCENT_MINUTE_ENDPOINT
   || '/tencent-api/ifzqgtimg/appstock/app/minute/query'
-const DEFAULT_SELECTED_COUNT = 24
+const DEFAULT_SELECTED_COUNT = 28
 const EXCLUDED_BOARD_NAMES = /昨日|涨停|连板|首板|新股|次新股|高送转|融资融券|转融券|深股通|沪股通|富时罗素|标普道琼斯|MSCI|同花顺|预亏|预增|基金重仓|社保重仓|证金持股|高价股|低价股|大盘股|小盘股|中盘股|央企央资|地方国资|政府控股|国企改革|周期股|机构重仓|参股|持股|增持|减持|破净股|破发股|AH股|AB股|含可转债|送转填权|行业龙头|一带一路|TMT|转融券标的|装修|装饰|电子签名|非白酒|其他|地面兵装|航天装备/
 const ALLOWED_BOARD_NAMES = new Set([
   '创新药', '人形机器人', '半导体材料', '半导体', '先进封装', '存储芯片', 'CPO', 'PCB',
   'AI应用', '人工智能', '游戏', '5G', '消费电子', 'MLCC', '元件',
   '算力概念', '光通信', '通信设备', '玻璃基板', '锂矿', '锂电池', '新能源',
   '新能源汽车', '风电', '储能', '充电桩', '智能驾驶', '光伏', '商业航天',
-  '电力', '电力设备', '电网设备', '煤炭', '化工', '生物医药','数据中心','医药', '医疗',
+  '电力', '电力设备', '电网设备', '煤炭', '化工', ,'数据中心','医药', '医疗',
   '白酒', '猪肉', '养殖', '黄金', '白银', '稀土', '有色金属', '银行',
   '证券', '保险', '房地产', '国防军工', '低空经济', '软件开发', '云计算',
   '汽车整车', '食品饮料', '家电', '农业', '石油天然气', '钢铁', '航运港口',
   '旅游酒店',
 ])
+//'生物医药'
 
 const BOARD_NAME_NORMALIZERS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /半导体材料/u, name: '半导体材料' },
   { pattern: /先进封装|Chiplet/u, name: '先进封装' },
   { pattern: /创新药/u, name: '创新药' },
-  { pattern: /生物医药/u, name: '生物医药' }, 
+  // { pattern: /生物医药/u, name: '生物医药' }, 
   { pattern: /人形机器人/u, name: '人形机器人' },
   { pattern: /半导体/u, name: '半导体' },
   { pattern: /共封装光模块|光模块|CPO/u, name: 'CPO' },
