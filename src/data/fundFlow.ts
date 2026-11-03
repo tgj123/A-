@@ -281,13 +281,13 @@ function reconstructMinuteFlow(rows: TencentMinuteRow[], finalFlow: number): Min
   return rows.map((row, index) => ({ time: formatMinute(row.time), value: corrected[index] }))
 }
 
-function selectSessionPoints(
+export function selectSessionPoints(
   points: MinuteFlowPoint[],
   key: 'morning' | 'afternoon',
 ): MinuteFlowPoint[] {
   const sessionPoints = key === 'morning'
     ? points.filter((point) => point.time >= '09:30' && point.time <= '11:30')
-    : points.filter((point) => point.time >= '13:30' && point.time <= '15:00')
+    : points.filter((point) => point.time >= '13:00' && point.time <= '15:00')
   if (!sessionPoints.length) return []
   const baseline = sessionPoints[0].value
   // 每个播放时段统一从 0 开始，避免真实快照校准后各板块起点分散。
@@ -401,7 +401,7 @@ function createSession(
   return {
     key,
     label: key === 'morning' ? '上午盘' : '下午盘',
-    range: key === 'morning' ? '09:30—11:30' : '13:30—15:00',
+    range: key === 'morning' ? '09:30—11:30' : '13:00—15:00',
     totalNetInflow: result.reduce((sum, sector) => sum + sector.netInflow, 0),
     sectors: result,
   }
@@ -430,6 +430,23 @@ async function loadBoardRows(boardType: 'gn' | 'hy' | 'hy2', count: number, sign
   return rows
 }
 
+/** 全天直接保留累计口径，不拼接已经归零的上午/下午序列。 */
+export function buildAllDaySectors(
+  sectors: SectorFlow[],
+  minuteFlows: Map<string, MinuteFlowPoint[]>,
+): SectorFlow[] {
+  return sectors.map((sector) => {
+    const minuteFlow = (minuteFlows.get(sector.code) ?? [])
+      .filter((point) => (point.time >= '09:30' && point.time <= '11:30')
+        || (point.time >= '13:00' && point.time <= '15:00'))
+      .map((point) => ({ ...point }))
+      .sort((a, b) => a.time.localeCompare(b.time))
+    // 快照与行情接口采集时刻可能略有偏差，最新端点以本次行情累计金额为准。
+    if (minuteFlow.length) minuteFlow[minuteFlow.length - 1].value = sector.netInflow
+    return { ...sector, minuteFlow }
+  })
+}
+
 async function loadTencentDailyFlow(signal?: AbortSignal, selectedCount = DEFAULT_SELECTED_COUNT): Promise<DailyFundFlow> {
   const [conceptRows, primaryIndustryRows, secondaryIndustryRows] = await Promise.all([
     loadBoardRows('gn', 798, signal),
@@ -454,6 +471,7 @@ async function loadTencentDailyFlow(signal?: AbortSignal, selectedCount = DEFAUL
     sessionMethod: 'turnover-estimate',
     morning: createSession('morning', sectors, minuteFlows),
     afternoon: createSession('afternoon', sectors, minuteFlows),
+    allDaySectors: buildAllDaySectors(sectors, minuteFlows),
   }
 }
 

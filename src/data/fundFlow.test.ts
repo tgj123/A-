@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { selectHotBoards } from './fundFlow'
+import { buildAllDaySectors, selectHotBoards, selectSessionPoints } from './fundFlow'
 
 function board(code: string, name: string, stockType: string, netInflow: number) {
   return {
@@ -15,6 +15,32 @@ function board(code: string, name: string, stockType: string, netInflow: number)
     zllc: '400',
   }
 }
+
+describe('全天累计资金', () => {
+  it('下午从13点开始，保留13点至13点半的全部分钟', () => {
+    expect(selectSessionPoints([
+      { time: '11:30', value: 9 }, { time: '13:00', value: 10 },
+      { time: '13:15', value: 12 }, { time: '13:30', value: 19 },
+    ], 'afternoon')).toEqual([
+      { time: '13:00', value: 0 }, { time: '13:15', value: 2 }, { time: '13:30', value: 9 },
+    ])
+  })
+
+  it('商业航天直接采用完整累计序列，末点对齐接口15.6亿而非分段后4.x亿', () => {
+    const sector = selectHotBoards([board('pt02GN2306', '商业航天', 'BK-GN', 156000)], 28)[0]
+    const source = [
+      { time: '09:30', value: 0 }, { time: '11:30', value: 856652700 },
+      { time: '13:00', value: 900000000 }, { time: '13:30', value: 1950423700 },
+      { time: '14:45', value: 1571544600 },
+    ]
+    const [result] = buildAllDaySectors([sector], new Map([[sector.code, source]]))
+    expect(result.code).toBe('pt02GN2306')
+    expect(result.minuteFlow.map((point) => point.time)).toEqual(source.map((point) => point.time))
+    expect(result.minuteFlow[3].value).toBe(1950423700)
+    expect(result.minuteFlow.at(-1)?.value).toBe(1560000000)
+    expect(source.at(-1)?.value).toBe(1571544600)
+  })
+})
 
 describe('selectHotBoards', () => {
   it('军工只采用腾讯一级行业国防军工并保留该名称', () => {

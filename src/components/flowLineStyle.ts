@@ -11,7 +11,8 @@ export function getFlowLineStyle(value: number, maxAbsValue: number): FlowLineSt
   const emphasis = Math.sqrt(ratio)
 
   return {
-    linewidth: 1.18 + emphasis * 0.87,
-    opacity: 0.4 + emphasis * 0.5,
+    // 密集走势保持细线，靠颜色实度与高分屏采样维持清晰，而非堆叠线宽。
+    linewidth: 0.9 + emphasis * 0.4,
+    opacity: 0.74 + emphasis * 0.24,
   }
 }

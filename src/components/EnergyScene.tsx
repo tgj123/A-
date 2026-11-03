@@ -6,6 +6,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 import type { SectorFlow, SessionKey } from '../types'
 import { formatAmount } from '../utils/format'
 import { getFlowLineStyle } from './flowLineStyle'
+import { getFlowLabelPosition } from './flowLabelLayout'
 
 interface EnergySceneProps {
   sectors: SectorFlow[]
@@ -30,8 +31,8 @@ interface FlowVisual {
   isPositive: boolean
 }
 
-const RED = new THREE.Color('#e06b68')
-const GREEN = new THREE.Color('#57a985')
+const RED = new THREE.Color('#c64c49')
+const GREEN = new THREE.Color('#33805d')
 const WORLD_LEFT = -5
 const WORLD_RIGHT = 5
 const WORLD_TOP = 8.25
@@ -44,23 +45,27 @@ export const MAX_VISIBLE_SECTORS = 28
 function createLabel(sector: SectorFlow): HTMLButtonElement {
   const label = document.createElement('button')
   label.className = `flow-label ${sector.netInflow >= 0 ? 'inflow' : 'outflow'}`
-  label.innerHTML = `<strong>${sector.name}</strong><span>${formatAmount(sector.netInflow)}</span>`
+  const name = document.createElement('strong')
+  name.textContent = sector.name
+  const amount = document.createElement('span')
+  amount.textContent = formatAmount(sector.netInflow)
+  label.append(name, amount)
   label.type = 'button'
   return label
 }
 
 export function makeTicks(session: SessionKey): Array<{ text: string; position: number }> {
   if (session === 'morning') return [
-    { text: '09:30', position: 0 }, { text: '10:00', position: 0.25 }, { text: '10:30', position: 0.5 },
-    { text: '11:00', position: 0.75 }, { text: '11:30', position: 1 },
+    { text: '09:30', position: 0 }, { text: '10:30', position: 0.5 },
+    { text: '11:30', position: 1 },
   ]
   if (session === 'afternoon') return [
-    { text: '13:30', position: 0 }, { text: '14:00', position: 1 / 3 },
-    { text: '14:30', position: 2 / 3 }, { text: '15:00', position: 1 },
+    { text: '13:00', position: 0 }, { text: '14:00', position: 0.5 },
+    { text: '15:00', position: 1 },
   ]
   // 全天压缩午休区间，仅保留三个关键时点，确保窄屏下文字不重叠。
   return [
-    { text: '09:30', position: 0 }, { text: '13:30', position: 121 / 211 },
+    { text: '09:30', position: 0 }, { text: '13:00', position: 121 / 241 },
     { text: '15:00', position: 1 },
   ]
 }
@@ -92,7 +97,8 @@ export function EnergyScene({
     const camera = new THREE.OrthographicCamera(WORLD_LEFT, WORLD_RIGHT, WORLD_TOP, WORLD_BOTTOM, 0.1, 20)
     camera.position.z = 8
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.7))
+    // 高分屏保留足够采样精度，同时限制上限，避免移动端显存开销失控。
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     host.appendChild(renderer.domElement)
 
@@ -120,8 +126,8 @@ export function EnergyScene({
     const plotTop = 5.5
     const plotBottom = -7.25
     const chartLeft = -3.25
-    // 折线终点提前收在左侧，为动态点到固定标签的细连接线留出距离，但不要拉得太开。
-    const chartRight = 0.12
+    // 终点在画布 47% 处收束，标签从 56% 开始，留下约 9% 宽度的引线区。
+    const chartRight = -0.3
     const gridLeft = -3.55
     const gridRight = 4.7
     const yAxisX = -3.62
@@ -241,7 +247,7 @@ export function EnergyScene({
       connectorGeometry.setPositions([points[0].x, points[0].y, 0, points[0].x, points[0].y, 0])
       const connectorMaterial = new LineMaterial({
         color: isPositive ? 0xd38b87 : 0x72b496,
-        linewidth: 1.35,
+        linewidth: 0.75,
         transparent: true,
         opacity: 0.78,
         worldUnits: false,
@@ -279,7 +285,9 @@ export function EnergyScene({
     let completed = false
     progressCallbackRef.current(0)
 
+    let labelHeight = 32
     const resize = () => {
+      labelHeight = visuals[0]?.label.offsetHeight || 32
       const width = host.clientWidth
       const height = host.clientHeight
       renderer.setSize(width, height, false)
@@ -313,12 +321,14 @@ export function EnergyScene({
         material.resolution.set(width, height)
         const connectorMaterial = visual.connector.material as LineMaterial
         connectorMaterial.resolution.set(width, height)
+        const position = getFlowLabelPosition(width, height, visual.labelTopPercent, labelHeight, window.devicePixelRatio)
+        visual.label.style.left = `${position.left}px`
+        visual.label.style.top = `${position.top}px`
+        // 播放结束后仍允许调整窗口；连接线与标签必须同时重定位。
+        updateLabel(visual, visual.marker.position, visual.currentValue, false, true)
       })
+      renderer.render(scene, camera)
     }
-    const observer = new ResizeObserver(resize)
-    observer.observe(host)
-    resize()
-
     const updateRanking = () => {
       const inflows = visuals
         .filter((visual) => visual.currentValue >= 0)
@@ -331,7 +341,7 @@ export function EnergyScene({
       // 标签整体上移，并给最后一个块保留底部安全距离。
       const top = 3
       const bottom = 95
-      // 标签高度为 25px；在当前图表高度下，28 个块相邻时仅保留约 1px 的间距。
+      // 图表为 28 个加大标签预留高度，按中心点均匀分布，避免相邻边框粘连。
       const groupGap = 0
       const step = ordered.length > 1
         ? (bottom - top - groupGap) / (ordered.length - 1)
@@ -365,10 +375,15 @@ export function EnergyScene({
       updateContent: boolean,
       updatePosition: boolean,
     ) => {
-      const targetX = host.clientWidth * 0.61
-      const targetY = host.clientHeight * visual.labelTopPercent / 100
+      const position = getFlowLabelPosition(
+        host.clientWidth, host.clientHeight, visual.labelTopPercent, labelHeight, window.devicePixelRatio,
+      )
+      const targetX = position.left
+      const targetY = position.centerY
       if (updatePosition) {
-        visual.label.style.transform = `translate3d(${targetX}px, ${targetY - 12}px, 0)`
+        // 文本不使用 3D 合成层与持续位移动画，停留帧保持清晰。
+        visual.label.style.left = `${position.left}px`
+        visual.label.style.top = `${position.top}px`
       }
       if (updateContent) {
         const amount = visual.label.querySelector('span')
@@ -443,7 +458,7 @@ export function EnergyScene({
           visual.linePositions[offset + 2] = point.z
         }
         visual.line.geometry.setPositions(visual.linePositions)
-        updateLabel(visual, current, visual.currentValue, rankingChanged, rankingUpdated)
+        updateLabel(visual, current, visual.currentValue, rankingChanged || progress >= 1, rankingUpdated)
       })
       renderer.render(scene, camera)
       if (progress >= 1) {
@@ -451,6 +466,10 @@ export function EnergyScene({
         cancelAnimationFrame(frame)
       }
     }
+    updateRanking()
+    const observer = new ResizeObserver(resize)
+    observer.observe(host)
+    resize()
     frame = requestAnimationFrame(animate)
 
     return () => {

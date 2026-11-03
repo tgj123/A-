@@ -14,7 +14,9 @@ button { font: inherit; }
 
 .chart-page {
   width: min(100%, 720px);
-  min-height: 100svh;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
   margin: 0 auto;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -44,16 +46,45 @@ button { font: inherit; }
 .replay-button:hover { color: #cb625f; border-color: #e9b4b1; background: #fff7f6; }
 .replay-button:active { transform: scale(.96); }
 .replay-button:focus-visible { outline: 2px solid rgba(221, 112, 109, .35); outline-offset: 2px; }
-.chart-stage { position: relative; width: 100%; min-height: 768px; overflow: hidden; }
+.chart-stage { position: relative; width: 100%; min-height: 0; container-type: size; overflow: hidden; }
 .chart-message { width: 100%; height: 100svh; display: grid; place-items: center; margin: 0; color: #757d86; background: #fff; font-size: 12px; }
 .energy-scene { position: absolute; inset: 0; overflow: hidden; background: #fff; }
 .energy-scene canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .flow-label-layer, .flow-axis-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.flow-label { position: absolute; left: 0; top: 0; width: max-content; max-width: 42%; height: 25px; display: inline-flex; align-items: center; justify-content: flex-start; gap: 4px; padding: 4px 7px; border: 1.5px solid currentColor; border-radius: 7px; background: rgba(255,255,255,.98); box-shadow: 0 1px 4px rgba(31, 39, 47, .08); font-size: 10px; line-height: 1; white-space: nowrap; pointer-events: none; transition: transform .07s linear, color .1s ease, border-color .1s ease; will-change: transform; margin: 0; }
-.flow-label.inflow { color: var(--red); }
-.flow-label.outflow { color: var(--green); }
-.flow-label strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 650; }
-.flow-label span { flex: none; font-weight: 700; }
+.flow-label {
+  position: absolute; left: 0; top: 0; width: max-content; max-width: 38%; height: min(32px, 2.9cqh);
+  display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: center;
+  gap: 5px; padding: 0 5px; margin: 0;
+  border: 1px solid #dce1e6; border-left: 3px solid var(--flow-accent); border-radius: 5px;
+  background: #fff; color: #20262e; font-size: clamp(9px, 1.75cqh, 13px); line-height: 1.15;
+  white-space: nowrap; pointer-events: none; text-align: left;
+}
+.flow-label.inflow { --flow-accent: #ad3835; }
+.flow-label.outflow { --flow-accent: #246b4c; }
+.flow-label strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.flow-label span { color: var(--flow-accent); font-size: inherit; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* 录制模式同样适配视口；1080×1920 视口得到原尺寸画布，手机预览不产生滚动。 */
+.chart-page.chart-page--recording {
+  width: min(100%, 1080px); height: 100svh; min-height: 0;
+  padding: clamp(10px, 2.9svh, 56px) clamp(12px, 2.22vw, 24px) clamp(8px, 1.67svh, 32px);
+  grid-template-rows: clamp(64px, 7.92svh, 152px) minmax(0, 1fr) clamp(30px, 3.34svh, 64px); border: 0;
+}
+body:has(.chart-page--recording) { padding: 0; }
+.chart-page--recording .chart-header { min-height: 0; padding: 0 0 clamp(8px, 1.25svh, 24px); }
+.chart-page--recording .chart-stage { min-height: 0; }
+.chart-page--recording .flow-label { height: 2.85cqh; padding: 0 clamp(4px, .7vw, 8px); gap: clamp(3px, .6vw, 7px); border-radius: 5px; font-size: clamp(9px, 2.7vw, 28px); }
+.chart-page--recording .flow-label span { font-size: inherit; }
+.chart-page--recording .playback-control { padding: clamp(7px, .84svh, 16px) clamp(9px, 1.85vw, 20px); }
+.chart-page--recording .playback-meta { margin-bottom: clamp(5px, .84svh, 16px); }
+.chart-page--recording .playback-label { font-size: clamp(10px, 2.22vw, 24px); }
+.chart-page--recording .playback-time { font-size: clamp(20px, 3.7vw, 40px); }
+.chart-page--recording .playback-boundary { font-size: clamp(8px, 1.85vw, 20px); }
+.chart-page--recording .playback-track { height: 8px; }
+.chart-page--recording .replay-button { min-width: 36px; min-height: 36px; }
+.chart-page--recording .replay-button svg { width: 20px; height: 20px; }
+.chart-page--recording .x-axis-tick, .chart-page--recording .y-axis-tick { font-size: clamp(9px, 2.04vw, 22px); }
+.chart-page--recording .chart-disclaimer { min-height: 0; font-size: clamp(9px, 2.04vw, 22px); }
 .y-axis-tick { position: absolute; min-width: 42px; color: #080a0d; background: rgba(255,255,255,.96); padding-right: 4px; font-size: 10px; font-weight: 800; text-align: right; transform: translate(-100%, -50%); z-index: 2; }
 .x-axis-tick { position: absolute; color: #080a0d; background: rgba(255,255,255,.96); padding: 1px 1px; font-size: 9px; font-weight: 800; white-space: nowrap; transform: translate(-50%, -50%); z-index: 2; }
 .chart-disclaimer { min-height: 42px; display: grid; place-content: center; color: #747b84; text-align: center; font-size: 10px; font-weight: 550; line-height: 1.55; }
@@ -70,7 +101,7 @@ button { font: inherit; }
 
 @media (min-width: 760px) {
   body { padding: 18px 0; }
-  .chart-page { min-height: calc(100vh - 36px); border: 1px solid #e8e8e8; }
+  .chart-page { height: calc(100svh - 36px); border: 1px solid #e8e8e8; }
 }
 
 @media (max-height: 700px) {

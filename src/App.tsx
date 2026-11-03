@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EnergyScene } from './components/EnergyScene'
 import { loadDailyFlow } from './data/fundFlow'
-import type { DailyFundFlow, SectorFlow, SessionKey } from './types'
+import type { DailyFundFlow, SessionKey } from './types'
 
 export type ViewMode = 'am' | 'pm' | 'all'
 
@@ -11,26 +11,8 @@ function getMode(): ViewMode {
   return 'am'
 }
 
-function combineAll(data: DailyFundFlow): SectorFlow[] {
-  const map = new Map<string, SectorFlow>()
-  for (const morning of data.morning.sectors) map.set(morning.code, { ...morning })
-  for (const afternoon of data.afternoon.sectors) {
-    const morning = map.get(afternoon.code)
-    if (!morning) continue
-    const morningEnd = morning.minuteFlow.at(-1)?.value ?? 0
-    const minuteFlow = [
-      ...morning.minuteFlow,
-      ...afternoon.minuteFlow.map((point) => ({ ...point, value: morningEnd + point.value })),
-    ]
-    map.set(afternoon.code, {
-      ...afternoon,
-      minuteFlow,
-    })
-  }
-  return [...map.values()].sort((a, b) => b.heatScore - a.heatScore)
-}
-
 export function App() {
+  const recording = new URLSearchParams(window.location.search).get('record') === '1'
   const [data, setData] = useState<DailyFundFlow | null>(null)
   const [error, setError] = useState('')
   const [mode, setMode] = useState<ViewMode>(getMode)
@@ -76,11 +58,11 @@ export function App() {
     if (!data) return []
     if (mode === 'am') return data.morning.sectors
     if (mode === 'pm') return data.afternoon.sectors
-    return combineAll(data)
+    return data.allDaySectors
   }, [data, mode])
 
   const session: SessionKey = mode === 'am' ? 'morning' : mode === 'pm' ? 'afternoon' : 'summary'
-  const sessionStart = mode === 'pm' ? '13:30' : '09:30'
+  const sessionStart = mode === 'pm' ? '13:00' : '09:30'
   const sessionEnd = mode === 'am' ? '11:30' : '15:00'
   const onPlaybackTime = useCallback((time: string) => setPlaybackTime(time), [])
   const onPlaybackProgress = useCallback((progress: number) => setPlaybackProgress(progress), [])
@@ -95,12 +77,12 @@ export function App() {
   if (!data) return <main className="chart-message">加载中</main>
 
   return (
-    <main className="chart-page">
+    <main className={`chart-page${recording ? ' chart-page--recording' : ''}`}>
       <header className="chart-header">
         <div className="playback-control" aria-label="行情回放进度">
           <div className="playback-meta">
             <span className="playback-label">
-              主力资金流入流出追踪
+              主力资金净流入流出追踪
             </span>
             <strong className="playback-time">{playbackTime || sessionStart}</strong>
           </div>

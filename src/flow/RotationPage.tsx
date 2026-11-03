@@ -4,7 +4,6 @@ import type { DailyFundFlow, SectorFlow } from '../types'
 import { formatAmount } from '../utils/format'
 import {
   FLOW_VISIBLE_SECTORS,
-  buildTodaySectors,
   getRotationFrame,
   hasPlayableSectors,
   type FlowRoute,
@@ -105,7 +104,7 @@ export function RotationPage({ mode }: RotationPageProps) {
     if (!data) return []
     return mode === 'am'
       ? data.morning.sectors
-      : buildTodaySectors(data.morning.sectors, data.afternoon.sectors)
+      : data.allDaySectors
   }, [data, mode])
 
   const pointCount = getPointCount(sectors)

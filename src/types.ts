@@ -36,6 +36,7 @@ export interface DailyFundFlow {
   sessionMethod: 'official-snapshot' | 'turnover-estimate' | 'mock'
   morning: SessionFlow
   afternoon: SessionFlow
+  allDaySectors: SectorFlow[]
 }
 
 export interface TencentFundFlowConfig {

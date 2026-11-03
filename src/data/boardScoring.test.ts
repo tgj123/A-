@@ -27,6 +27,17 @@ describe('selectPinnedBoards', () => {
 })
 
 describe('selectPublicBoards', () => {
+  it('银行热度垫底也固定进入28个候选，不增加总数量', () => {
+    const others = Array.from({ length: 40 }, (_, index) => ({
+      name: `热门${index}`, heatScore: 100 - index, netInflow: 1000 - index, changePercent: 10,
+    }))
+    const bank = { name: '银行', heatScore: 0, netInflow: 1, changePercent: 0 }
+    const selected = selectPublicBoards([...others, bank], 28)
+    expect(selected).toHaveLength(28)
+    expect(selected).toContain(bank)
+    expect(new Set(selected.map((board) => board.name)).size).toBe(28)
+  })
+
   it('候选池容量有限时优先保留九个固定板块', () => {
     const pinned = ['医药', '创新药', '白酒', '半导体', 'CPO', '存储芯片', '人形机器人', '商业航天', '黄金']
       .map((name) => ({ name, heatScore: 0, netInflow: 0, changePercent: 0 }))
